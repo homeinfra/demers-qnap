@@ -1,0 +1,454 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: MIT
+#
+# This script is used to configure the qnap machine
+#
+# Currently tested on XCP-ng 8.3 (CentOS)
+
+setup() {
+  export LOG_CONSOLE=1
+  logSetLevel "${LEVEL_ALL}"
+
+  # Load install configuration
+  if ! config_load "${DQ_ROOT}/data/local.env"; then
+    logError "Failed to load install configuration"
+    return 1
+  fi
+
+  if ! setup_dependencies; then
+    logError "Failed to setup dependencies"
+    return 1
+  fi
+
+  if ! setup_host_hardware; then
+    logError "Failed to setup host hardware"
+    return 1
+  fi
+
+  if ! local_xcp_config; then
+    logError "Failed to configure local XCP-ng"
+    return 1
+  fi
+
+  if [[ ${REBOOT_REQUIRED} -eq 1 ]]; then
+    logInfo "Rebooting..."
+    shutdown -r now
+  fi
+
+  return 0
+}
+
+setup_dependencies() {
+  # Make sure git is installed and configured
+  if ! git_install; then
+    logInfo "Failed to install git"
+    return 1
+  fi
+  if ! git_configure "${DQ_ROOT}"; then
+    logInfo "Failed to configure git"
+    return 1
+  fi
+
+  # Install and configure configuration cyphering
+  if ! sops_install; then
+    logInfo "Failed to install sops"
+    return 1
+  fi
+  if ! age_install; then
+    logInfo "Failed to install age"
+    return 1
+  fi
+  if ! age_configure "${AGE_KEY}"; then
+    logInfo "Failed to configure age"
+    return 1
+  fi
+
+  return 0
+}
+
+setup_host_hardware() {
+  if ! config_load "${DQ_ROOT}/data/hardware.env"; then
+    logError "Failed to load hardware configuration"
+    return 1
+  fi
+
+  # Make sure we are executing on the right system
+  if ! check_system; then
+    logError "This script is not supported on this system"
+    return 1
+  fi
+
+  if ! storage_setup; then
+    logError "Failed to setup storage"
+    return 1
+  fi
+
+  # Install drivers for the 10 GBe NIC
+  if ! aq113c_install; then
+    logError "Failed to install AQ113C drivers"
+    return 1
+  fi
+
+  if ! validate_hardware; then
+    logError "Failed to validate hardware"
+    return 1
+  fi
+
+  # Configure sensors
+  if ! sensor_install; then
+    logError "Failed to install sensors"
+    return 1
+  fi
+
+  # Configure QNAP HAL
+  if ! qnap_hal_install; then
+    logError "Failed to install QNAP HAL"
+    return 1
+  fi
+
+  # Test hardware by using the buzzer
+  if ! qhal beep Online; then
+    logError "Failed to test buzzer"
+    return 1
+  fi
+
+  if ! setup_ups; then
+    logError "Failed to setup UPS"
+    return 1
+  fi
+
+  # Hide PCI devices from dom0, as they will be passed to VMs
+  local res
+  passthrough_configure
+  res=$?
+  if [[ ${res} -ne 0 ]]; then
+    if [[ ${res} -eq 2 ]]; then
+      logInfo "Reboot required"
+      REBOOT_REQUIRED=1
+    else
+      logError "Failed to configure PCI passthrough"
+      return 1
+    fi
+  fi
+  logInfo "PCI passthrough configured"
+
+  return 0
+}
+
+setup_ups() {
+  # Prepare configuration
+  local nut_script="${DQ_ROOT}/src/lifecycle/nut_handler"
+  local driver_file="${DQ_ROOT}/data/ups/ups.conf"
+  local daemon_file="${DQ_ROOT}/data/ups/upsd.conf"
+  local user_file="${DQ_ROOT}/data/ups/upsd.users"
+  local monitor_file="${DQ_ROOT}/data/ups/upsmon.conf"
+  local scheduler_file="${DQ_ROOT}/data/ups/upssched.conf"
+
+  # Make sure each of these files exists
+  if [[ ! -f "${nut_script}" ]]; then
+    logError "NUT handler script not found"
+    return 1
+  fi
+  if [[ ! -f "${driver_file}" ]]; then
+    logError "UPS driver configuration file not found"
+    return 1
+  fi
+  if [[ ! -f "${daemon_file}" ]]; then
+    logError "UPS daemon configuration file not found"
+    return 1
+  fi
+  if [[ ! -f "${user_file}" ]]; then
+    logError "UPS user configuration file not found"
+    return 1
+  fi
+  if [[ ! -f "${monitor_file}" ]]; then
+    logError "UPS monitor configuration file not found"
+    return 1
+  fi
+  if [[ ! -f "${scheduler_file}" ]]; then
+    logError "UPS scheduler configuration file not found"
+    return 1
+  fi
+
+  # Install script
+  local nut_script_dest="${BIN_DIR}/nut_handler"
+  if [[ -L "${nut_script_dest}" ]]; then
+    if [[ "$(readlink "${nut_script_dest}" || true)" == "${nut_script}" ]]; then
+      logInfo "${nut_script} already symlinked"
+    else
+      # Replace symlink
+      if ! rm -f "${nut_script_dest}"; then
+        logError "Failed to remove old symlink"
+        return 1
+      fi
+      if ! ln -s "${nut_script}" "${nut_script_dest}"; then
+        logError "Failed to create ${nut_script} simlink"
+        return 1
+      else
+        logInfo "Replaced symlink to ${nut_script} successfully"
+      fi
+    fi
+  elif [[ -f "${nut_script_dest}" ]]; then
+    logError "A ${nut_script} file already exists"
+    return 1
+  else
+    if ! ln -s "${nut_script}" "${nut_script_dest}"; then
+      logError "Failed to create ${nut_script} simlink"
+      return 1
+    else
+      logInfo "Created symlink to ${nut_script} successfully"
+    fi
+  fi
+
+  # Load configuration files
+  local driver_content
+  local daemon_content
+  local user_content
+  local monitor_content
+  local scheduler_content
+
+  # shellcheck disable=SC2034
+  driver_content=$(cat "${driver_file}")
+  # shellcheck disable=SC2034
+  daemon_content=$(cat "${daemon_file}")
+  # shellcheck disable=SC2034
+  user_content=$(sops -d "${user_file}")
+  # shellcheck disable=SC2034
+  monitor_content=$(sops -d "${monitor_file}")
+  # shellcheck disable=SC2034
+  scheduler_content=$(cat "${scheduler_file}")
+
+  # Configure NUT by making dynamic repplaces for the @value@ tags in the files
+  # shellcheck disable=SC2140
+  monitor_content="${monitor_content//"@NOTIFY_CMD@"/"${nut_script_dest} event -- "}"
+  # shellcheck disable=SC2140
+  monitor_content="${monitor_content//"@SHUTDOWN_CMD@"/"${nut_script_dest} shutdown"}"
+
+  # shellcheck disable=SC2140
+  scheduler_content="${scheduler_content//"@SCHED_CMD@"/"${nut_script_dest} timer -- "}"
+  # shellcheck disable=SC2140
+  scheduler_content="${scheduler_content//"@PIPEFN@"/"/var/run/nut/upssched.pipe"}"
+  # shellcheck disable=SC2140
+  scheduler_content="${scheduler_content//"@LOCKFN@"/"/var/run/nut/upssched.lock"}"
+
+  # Configure NUT
+  if ! nut_setup "netserver" driver_content daemon_content user_content monitor_content scheduler_content; then
+    logError "Failed to configure NUT"
+    return 1
+  fi
+
+  return 0
+}
+
+# Validate hardware
+validate_hardware() {
+  # Validate network interfaces
+  local macs=()
+  local nic
+  for nic in ${NICS}; do
+    nic="${nic}_MAC"
+    if [[ -n "${!nic}" ]]; then
+      macs+=("${!nic}")
+    else
+      logError "Variable ${nic} is not set or empty"
+      return 1
+    fi
+  done
+
+  if xe_validate_nic "${macs[@]}"; then
+    logInfo "All network interfaces exist"
+  else
+    logError "At least one NIC is invalid"
+    return 1
+  fi
+
+  return 0
+}
+
+check_system() {
+  local name
+  if id_identify name; then
+    if [[ "${name}" == "${QN_NAME}" ]]; then
+      return 0
+    fi
+  fi
+
+  return 1
+}
+
+local_xcp_config() {
+  # Configure emails
+  if ! email_install; then
+    logError "Failed to install email configuration"
+    return 1
+  fi
+
+  # Configure Boot drive monitoring
+  if ! sd_configure; then
+    logError "Failed to install smartd"
+    return 1
+  fi
+  if ! md_configure; then
+    logError "Failed to install mdadm"
+    return 1
+  fi
+
+  # Configure the lifecycle daemon
+  if ! deamon_configure; then
+    logError "Failed to configure the lifecycle daemon"
+    return 1
+  fi
+
+  if ! enable_power_button; then
+    logError "Failed to enable power button"
+    return 1
+  fi
+
+  if ! netdata_configure "qnap@demers.jeremfg.com" "sol.demers.jeremfg.com@gmail.com"; then
+    logError "Failed to configure netdata"
+    return 1
+  fi
+
+  return 0
+}
+
+external_depends() {
+  if ! command -v bpkg &>/dev/null; then
+    # shellcheck disable=SC2312
+    if ! curl -sLo- https://get.bpkg.sh | bash; then
+      echo "Failed to install bpkg"
+      return 1
+    fi
+  fi
+
+  if [[ ! -f "${PREFIX}/lib/slf4.sh" ]]; then
+    if ! bpkg install -g jeremfg/slf4.sh; then
+      echo "Failed to install slf4.sh"
+      return 1
+    fi
+  fi
+
+  if [[ ! -f "${PREFIX}/lib/config.sh" ]]; then
+    if ! bpkg install -g jeremfg/config.sh; then
+      echo "Failed to install config.sh"
+      return 1
+    fi
+  fi
+}
+
+# Variables loaded externally
+LEVEL_ALL=""
+NICS=""
+QN_NAME=""
+
+# Constants
+AGE_KEY="homeinfra_demers"
+REBOOT_REQUIRED=0
+
+###########################
+###### Startup logic ######
+###########################
+
+# Get directory of this script
+# https://stackoverflow.com/a/246128
+DQ_SOURCE=${BASH_SOURCE[0]}
+while [[ -L "${DQ_SOURCE}" ]]; do # resolve $DQ_SOURCE until the file is no longer a symlink
+  DQ_ROOT=$(cd -P "$(dirname "${DQ_SOURCE}")" >/dev/null 2>&1 && pwd)
+  DQ_SOURCE=$(readlink "${DQ_SOURCE}")
+  [[ ${DQ_SOURCE} != /* ]] && DQ_SOURCE=${DQ_ROOT}/${DQ_SOURCE} # if $DQ_SOURCE was a relative symlink, we need to resolve it relative to the path where the symlink file was located
+done
+DQ_ROOT=$(cd -P "$(dirname "${DQ_SOURCE}")" >/dev/null 2>&1 && pwd)
+DQ_ROOT=$(realpath "${DQ_ROOT}/..")
+
+# Determine BPKG's global prefix
+if [[ -z "${PREFIX}" ]]; then
+  if [[ $(id -u || true) -eq 0 ]]; then
+    PREFIX="/usr/local"
+  else
+    PREFIX="${HOME}/.local"
+  fi
+fi
+
+# Instalal external dependencies
+external_depends
+
+# Import dependencies
+SETUP_REPO_DIR="${DQ_ROOT}/external/setup"
+XE_LIB_DIR="${DQ_ROOT}/external/xapi.sh"
+# shellcheck disable=SC1091
+if ! source "${PREFIX}/lib/slf4.sh"; then
+  echo "Failed to import slf4.sh"
+  exit 1
+fi
+# shellcheck disable=SC1091
+if ! source "${PREFIX}/lib/config.sh"; then
+  logFatal "Failed to import config.sh"
+fi
+# shellcheck disable=SC1091
+if ! source "${SETUP_REPO_DIR}/src/git.sh"; then
+  logFatal "Failed to import git.sh"
+fi
+# shellcheck disable=SC1091
+if ! source "${SETUP_REPO_DIR}/src/sops.sh"; then
+  logFatal "Failed to import sops.sh"
+fi
+# shellcheck disable=SC1091
+if ! source "${SETUP_REPO_DIR}/src/age.sh"; then
+  logFatal "Failed to import age.sh"
+fi
+# shellcheck disable=SC1091
+if ! source "${SETUP_REPO_DIR}/src/nut.sh"; then
+  logFatal "Failed to import nut.sh"
+fi
+# shellcheck disable=SC1091
+if ! source "${SETUP_REPO_DIR}/src/netdata"; then
+  logFatal "Failed to import netdata"
+fi
+# shellcheck disable=SC1091
+if ! source "${XE_LIB_DIR}/src/xe_network.sh"; then
+  logFatal "Failed to import xe_network.sh"
+fi
+if ! source "${DQ_ROOT}/src/hal/identity"; then
+  logFatal "Failed to import identity"
+fi
+if ! source "${DQ_ROOT}/src/aq113c/aq113c.sh"; then
+  logFatal "Failed to import aq113c.sh"
+fi
+if ! source "${DQ_ROOT}/src/hal/sensors.sh"; then
+  logFatal "Failed to import sensors.sh"
+fi
+if ! source "${DQ_ROOT}/src/hal/qnap_hal"; then
+  logFatal "Failed to import qnap_hal"
+fi
+if ! source "${DQ_ROOT}/src/email/email.sh"; then
+  logFatal "Failed to import email.sh"
+fi
+if ! source "${DQ_ROOT}/src/raid/mdadm"; then
+  logFatal "Failed to import mdadm"
+fi
+if ! source "${DQ_ROOT}/src/raid/smartd"; then
+  logFatal "Failed to import smartd"
+fi
+if ! source "${DQ_ROOT}/src/lifecycle/daemon.sh"; then
+  logFatal "Failed to import daemon.sh"
+fi
+if ! source "${DQ_ROOT}/src/iommu/passthrough.sh"; then
+  logFatal "Failed to import passthrough.sh"
+fi
+# shellcheck disable=SC1094
+if ! source "${DQ_ROOT}/src/storage/storage.sh"; then
+  logFatal "Failed to import storage.sh"
+fi
+
+if [[ -p /dev/stdin ]] && [[ -z ${BASH_SOURCE[0]} ]]; then
+  # This script was piped
+  setup "${@}"
+  exit $?
+elif [[ ${BASH_SOURCE[0]} != "${0}" ]]; then
+  # This script was sourced
+  logFatal "This script cannot be sourced"
+else
+  # This script was executed
+  setup "${@}"
+  exit $?
+fi

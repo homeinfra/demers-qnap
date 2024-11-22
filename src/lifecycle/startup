@@ -1,0 +1,166 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: MIT
+#
+# Script executed on startup to configure the system on bootup
+
+startup_main() {
+  logInfo "Starting up..."
+  startup_init
+
+  hardware_init
+
+  if ! storage_mount; then
+    error "Failed to mount storage"
+  fi
+
+  # Startup complete
+  if ! "${HOME_BIN}/qhal" lcd off; then
+    error "Failed to turn off LCD"
+  fi
+  if ! "${HOME_BIN}/qhal" beep Online; then
+    error "Failed to buzz indicating startup complete"
+  fi
+
+  info "Startup complete"
+  return 0
+}
+
+hardware_init() {
+  # Initialize HAL
+  if ! qnap_hal_init; then
+    error "Failed to start HAL daemon"
+  fi
+
+  # Start HAL daemon
+  if ! "${HOME_BIN}/qhal" start; then
+    error "Failed to start QNAP HAL"
+  fi
+
+  # Register USB Copy Button to perform a total shutdown
+  local sh_cmd="${ST_ROOT}/src/lifecycle/shutdown.sh"
+  if ! "${HOME_BIN}/qhal" button USB_Copy -- "${sh_cmd}" -e all; then
+    error "Failed to register USB Copy button for full shutdown"
+  else
+    logInfo "Registered USB Copy button for full shutdown"
+  fi
+}
+
+startup_init() {
+  local res
+  if ! xe_exec res host-list name-label="$(hostname || true)" --minimal; then
+    logError "Failed to get host"
+    exit 1
+  elif [[ -z "${res}" ]]; then
+    logError "Host not found"
+    exit 1
+  elif [[ "${res}" == *","* ]]; then
+    logError "Multiple hosts found"
+    exit 1
+  else
+    logTrace "Host identified: ${res}"
+    HOST_ID=${res}
+  fi
+
+  # Load configuration
+  if ! config_load "${ST_ROOT}/data/local.env"; then
+    logError "Failed to load local configuration"
+  fi
+  if ! config_load "${CONFIG_DIR}/email.env"; then
+    logError "Failed to load QNAP configuration"
+  fi
+}
+
+info() {
+  logInfo "$1"
+
+  if ! xe_exec null message-create name="Startup" body="${1}" priority="${LVL_INFO}" host-uuid="${HOST_ID}"; then
+    logError "Failed to send notification to XCP-ng"
+  fi
+}
+
+warn() {
+  logWarn "$1"
+
+  if ! xe_exec null message-create name="Startup" body="${1}" priority="${LVL_WARN}" host-uuid="${HOST_ID}"; then
+    logError "Failed to send notification to XCP-ng"
+  fi
+}
+
+error() {
+  logError "$1"
+
+  if ! xe_exec null message-create name="Startup" body="${1}" priority="${LVL_ERROR}" host-uuid="${HOST_ID}"; then
+    logError "Failed to send notification to XCP-ng"
+  fi
+}
+
+# Variables loaded externally
+HOME_BIN=""
+
+# XCP-ng message levels
+LVL_ERROR=1
+LVL_WARN=2
+LVL_INFO=3
+# shellcheck disable=SC2034
+LVL_DEBUG=4
+# shellcheck disable=SC2034
+LVL_TRACE=5
+
+###########################
+###### Startup logic ######
+###########################
+
+# Get directory of this script
+# https://stackoverflow.com/a/246128
+ST_SOURCE=${BASH_SOURCE[0]}
+while [[ -L "${ST_SOURCE}" ]]; do # resolve $ST_SOURCE until the file is no longer a symlink
+  ST_ROOT=$(cd -P "$(dirname "${ST_SOURCE}")" >/dev/null 2>&1 && pwd)
+  ST_SOURCE=$(readlink "${ST_SOURCE}")
+  [[ ${ST_SOURCE} != /* ]] && ST_SOURCE=${ST_ROOT}/${ST_SOURCE} # if $ST_SOURCE was a relative symlink, we need to resolve it relative to the path where the symlink file was located
+done
+ST_ROOT=$(cd -P "$(dirname "${ST_SOURCE}")" >/dev/null 2>&1 && pwd)
+ST_ROOT=$(realpath "${ST_ROOT}/../..")
+
+# Determine BPKG's global prefix
+if [[ -z "${PREFIX}" ]]; then
+  if [[ $(id -u || true) -eq 0 ]]; then
+    PREFIX="/usr/local"
+  else
+    PREFIX="${HOME}/.local"
+  fi
+fi
+
+# Import dependencies
+SETUP_REPO_DIR="${ST_ROOT}/external/setup"
+# shellcheck disable=SC1091
+if ! source "${PREFIX}/lib/slf4.sh"; then
+  echo "Failed to import slf4.sh"
+  exit 1
+fi
+# shellcheck disable=SC1091
+if ! source "${PREFIX}/lib/config.sh"; then
+  logFatal "Failed to import config.sh"
+fi
+# shellcheck disable=SC1091
+if ! source "${ST_ROOT}/src/hal/qnap_hal"; then
+  logFatal "Failed to import qnap_hal"
+fi
+# shellcheck disable=SC1094
+if ! source "${ST_ROOT}/src/storage/storage.sh"; then
+  logFatal "Failed to import storage.sh"
+fi
+if ! source "${ST_ROOT}/external/xapi.sh/src/xe_utils.sh"; then
+  logFatal "Failed to import xe_utils.sh"
+fi
+
+if [[ -p /dev/stdin ]] && [[ -z ${BASH_SOURCE[0]} ]]; then
+  # This script was piped
+  logFatal "This script cannot be piped"
+elif [[ ${BASH_SOURCE[0]} != "${0}" ]]; then
+  # This script was sourced
+  logFatal "This script cannot be sourced"
+else
+  # This script was executed
+  startup_main
+  exit $?
+fi

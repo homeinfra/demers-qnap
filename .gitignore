@@ -1,0 +1,7 @@
+# Log files
+.log/
+
+# Locally installed files
+bin/
+
+__pycache__/
