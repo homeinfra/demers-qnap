@@ -14,9 +14,15 @@ setup() {
 ###### Startup logic ######
 ###########################
 
-if [[ ${BASH_SOURCE[0]} != "${0}" ]]; then
+if [[ -p /dev/stdin ]]; then
+  # This script was piped
+  setup "${@}"
+  exit $?
+elif [[ ${BASH_SOURCE[0]} != "${0}" ]]; then
+  # This script was sourced
   export -f setup
 else
+  # This script was executed
   setup "${@}"
   exit $?
 fi
