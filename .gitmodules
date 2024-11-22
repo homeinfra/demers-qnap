@@ -1,0 +1,4 @@
+[submodule "external/setup"]
+	path = external/setup
+	url = git@github.com:jeremfg/setup.git
+	branch = main
