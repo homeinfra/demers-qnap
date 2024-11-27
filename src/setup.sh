@@ -31,8 +31,8 @@ DQ_ROOT=$(realpath "${DQ_ROOT}/..")
 
 if [[ -p /dev/stdin ]]; then
   # This script was piped
-  echo "ERROR: This script cannot be piped"
-  exit 1
+  setup "${@}"
+  exit $?
 elif [[ ${BASH_SOURCE[0]} != "${0}" ]]; then
   # This script was sourced
   echo "ERROR: This script cannot be sourced"
