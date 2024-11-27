@@ -55,14 +55,21 @@ Host Qnap
   PreferredAuthentications publickey
   IdentityFile <private key>
 ```
-4. Open a remote session in VS Code, on Qnap, and open this repository on 
+4. Open a remote session in VS Code, on Qnap, and open this git repository folder which should already be on the server following the installation above.
 
 ### TODO
 
-- [ ] SOPS+AGE
+- [ ] Configure AGE Key
 - [ ] Config library (.env files)
 - [ ] PCI Passthrough
 - [ ] Fans and sensors
 - [ ] 10Gbe NIC driver
 - [ ] LCD
+- [ ] XCP-ng email notifications
+- [ ] NUT UPS support
+- [ ] TrueNAS VM creation
 - [ ] Linter (pre-commit hook)
+
+### Nice to have
+
+- [ ] When generating a new key for github, use the github CLI to install it

@@ -14,9 +14,18 @@ setup() {
     sg_print "Failed to install git"
     return 1
   fi
-
   if ! git_configure "${DQ_ROOT}"; then
     sg_print "Failed to configure git"
+    return 1
+  fi
+
+  # Install and configure configuration cyphering
+  if ! sops_install; then
+    sg_print "Failed to install sops"
+    return 1
+  fi
+  if ! age_install; then
+    sg_print "Failed to install age"
     return 1
   fi
 
@@ -45,6 +54,8 @@ DQ_ROOT=$(realpath "${DQ_ROOT}/..")
 # Import dependencies
 source ${DQ_ROOT}/external/setup/src/slf4sh.sh
 source ${DQ_ROOT}/external/setup/src/git.sh
+source ${DQ_ROOT}/external/setup/src/sops.sh
+source ${DQ_ROOT}/external/setup/src/age.sh
 
 if [[ -p /dev/stdin ]] && [[ -z ${BASH_SOURCE[0]} ]]; then
   # This script was piped
