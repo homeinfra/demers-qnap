@@ -9,13 +9,18 @@ setup() {
   declare -g DQ_ARGS=("$@")
   logInfo "Setup called with: ${DQ_ARGS[@]}"
 
-  # Make sure git is installed
-  if ! pkg_install "git"; then
+  # Make sure git is installed and configured
+  if ! git_install; then
     sg_print "Failed to install git"
     return 1
   fi
 
+  if ! git_configure "${DQ_ROOT}"; then
+    sg_print "Failed to configure git"
+    return 1
+  fi
 
+  return 0
 }
 
 ###########################
@@ -38,7 +43,8 @@ DQ_ROOT=$(cd -P "$(dirname "${DQ_SOURCE}")" >/dev/null 2>&1 && pwd)
 DQ_ROOT=$(realpath "${DQ_ROOT}/..")
 
 # Import dependencies
-source ${PK_ROOT}/src/slf4sh.sh
+source ${DQ_ROOT}/external/setup/src/slf4sh.sh
+source ${DQ_ROOT}/external/setup/src/git.sh
 
 if [[ -p /dev/stdin ]] && [[ -z ${BASH_SOURCE[0]} ]]; then
   # This script was piped
