@@ -59,8 +59,7 @@ Host Qnap
 
 ### TODO
 
-- [ ] Configure AGE Key
-- [ ] Config library (.env files)
+- [x] Config library (.env files)
 - [ ] PCI Passthrough
 - [ ] Fans and sensors
 - [ ] 10Gbe NIC driver

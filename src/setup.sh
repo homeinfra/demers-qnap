@@ -5,27 +5,33 @@
 #
 # Currently tested on XCP-ng 8.3 (CentOS)
 
+AGE_KEY="homeinfra_demers"
+
 setup() {
   declare -g DQ_ARGS=("$@")
   logInfo "Setup called with: ${DQ_ARGS[@]}"
 
   # Make sure git is installed and configured
   if ! git_install; then
-    sg_print "Failed to install git"
+    logInfo "Failed to install git"
     return 1
   fi
   if ! git_configure "${DQ_ROOT}"; then
-    sg_print "Failed to configure git"
+    logInfo "Failed to configure git"
     return 1
   fi
 
   # Install and configure configuration cyphering
   if ! sops_install; then
-    sg_print "Failed to install sops"
+    logInfo "Failed to install sops"
     return 1
   fi
   if ! age_install; then
-    sg_print "Failed to install age"
+    logInfo "Failed to install age"
+    return 1
+  fi
+  if ! age_configure "${AGE_KEY}"; then
+    logInfo "Failed to configure age"
     return 1
   fi
 
