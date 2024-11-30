@@ -59,10 +59,10 @@ Host Qnap
 
 ### TODO
 
-- [x] Config library (.env files)
+- [x] Config library (.env files) (Still need to use it, and thus confirm it works with SOPS+AGE)
 - [ ] PCI Passthrough
 - [ ] Fans and sensors
-- [ ] 10Gbe NIC driver
+- [x] 10Gbe NIC driver (Possibly needs more configuration, like MTU)
 - [ ] LCD
 - [ ] XCP-ng email notifications
 - [ ] NUT UPS support

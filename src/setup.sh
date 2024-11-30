@@ -35,6 +35,12 @@ setup() {
     return 1
   fi
 
+  # Install drivers for the 10 GBe NIC
+  if ! aq113c_install; then
+    logInfo "Failed to install AQ113C drivers"
+    return 1
+  fi
+
   return 0
 }
 
@@ -62,6 +68,7 @@ source ${DQ_ROOT}/external/setup/src/slf4sh.sh
 source ${DQ_ROOT}/external/setup/src/git.sh
 source ${DQ_ROOT}/external/setup/src/sops.sh
 source ${DQ_ROOT}/external/setup/src/age.sh
+source ${DQ_ROOT}/src/aq113c/aq113c.sh
 
 if [[ -p /dev/stdin ]] && [[ -z ${BASH_SOURCE[0]} ]]; then
   # This script was piped
