@@ -3,21 +3,6 @@
 #
 # API for XCP-ng network configuration
 
-# Known NICs on this system
-NIC_0_MAC="00:08:9b:ef:8d:72" # Used for Management and WOL
-NIC_1_MAC="00:08:9b:ef:8d:73" # Unused
-NIC_2_MAC="24:5e:be:86:05:e9" # Expansion card (10 GbE)
-
-test() {
-  if nw_validate_nic "${NIC_0_MAC}" "${NIC_1_MAC}" "${NIC_2_MAC}"; then
-    logInfo "All network interfaces exist"
-  else
-    echo "ERROR: At least one NIC is invalid"
-    return 1
-  fi
-  return 0
-}
-
 # Checks if the provided NICs exists
 #
 # Parameters:
@@ -68,10 +53,13 @@ nw_identify_nic() {
   local res
   if ! res=$(xe ${XE_LOGIN} pif-list MAC="${_mac}"); then
     logError "Failed to execute search"
+    return 1
   elif [[ -z "${res}" ]]; then
     logError "NIC not found"
+    return 1
   else
     xe_parse_params "$res"
+    return 0
   fi
 }
 
@@ -108,8 +96,6 @@ elif [[ ${BASH_SOURCE[0]} != "${0}" ]]; then
   :
 else
   # This script was executed
-  # echo "ERROR: This script cannot be executed"
-  # exit 1
-  test
-  exit $?
+  echo "ERROR: This script cannot be executed"
+  exit 1
 fi

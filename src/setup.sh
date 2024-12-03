@@ -35,9 +35,41 @@ setup() {
     return 1
   fi
 
+  config_load "${DQ_ROOT}/data/qnap.env"
+
   # Install drivers for the 10 GBe NIC
   if ! aq113c_install; then
     logInfo "Failed to install AQ113C drivers"
+    return 1
+  fi
+
+  if ! validate_hardware; then
+    logError "Failed to validate hardware"
+    return 1
+  fi
+
+  return 0
+}
+
+# Validate hardware
+validate_hardware() {
+  # Validate network interfaces
+  local macs=()
+  local nw_validate_nic
+  for nic in ${NICS}; do
+    nic="${nic}_MAC"
+    if [[ -n "${!nic}" ]]; then
+      macs+=("${!nic}")
+    else
+      logError "Variable ${nic} is not set or empty"
+      return 1
+    fi
+  done
+
+  if nw_validate_nic "${macs[@]}"; then
+    logInfo "All network interfaces exist"
+  else
+    logError "At least one NIC is invalid"
     return 1
   fi
 
@@ -68,7 +100,9 @@ source ${DQ_ROOT}/external/setup/src/slf4sh.sh
 source ${DQ_ROOT}/external/setup/src/git.sh
 source ${DQ_ROOT}/external/setup/src/sops.sh
 source ${DQ_ROOT}/external/setup/src/age.sh
+source ${DQ_ROOT}/external/setup/src/config.sh
 source ${DQ_ROOT}/src/aq113c/aq113c.sh
+source ${DQ_ROOT}/libs/xenapi/src/network.sh
 
 if [[ -p /dev/stdin ]] && [[ -z ${BASH_SOURCE[0]} ]]; then
   # This script was piped

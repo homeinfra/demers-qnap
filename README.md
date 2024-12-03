@@ -59,16 +59,18 @@ Host Qnap
 
 ### TODO
 
-- [x] Config library (.env files) (Still need to use it, and thus confirm it works with SOPS+AGE)
+Local tasks:
 - [ ] PCI Passthrough
 - [ ] Fans and sensors
-- [x] 10Gbe NIC driver (Possibly needs more configuration, like MTU)
 - [ ] LCD
 - [ ] XCP-ng email notifications
 - [ ] NUT UPS support
-- [ ] TrueNAS VM creation
+
+Remote tasks:
+- [ ] Network configuration
+- [ ] TrueNAS VM creation and configuration
 - [ ] Linter (pre-commit hook)
 
 ### Nice to have
 
-- [ ] When generating a new key for github, use the github CLI to install it
+- [ ] When generating a new key for github, use the github CLI to install it automatically
