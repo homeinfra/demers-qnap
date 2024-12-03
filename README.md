@@ -60,11 +60,18 @@ Host Qnap
 ### TODO
 
 Local tasks:
+
+- [ ] HAL Support
+  - [x] Fans and sensors: lm_sensors supported
+  - [ ] USB Copy button
+  - [ ] Status, USB, LAN & WLAN LED
+  - [ ] HDD Status LED
+  - [ ] Buzzer
+- [ ] LCD + Buttons
 - [ ] PCI Passthrough
-- [ ] Fans and sensors
-- [ ] LCD
 - [ ] XCP-ng email notifications
 - [ ] NUT UPS support
+- [ ] NetData (hardware monitoring)
 
 Remote tasks:
 - [ ] Network configuration
