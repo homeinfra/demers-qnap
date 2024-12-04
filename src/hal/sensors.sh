@@ -3,7 +3,7 @@
 #
 # This script is used to configure the qnap sensors
 
-test() {
+sensor_install() {
   # Make sure we have the right packages
   if ! pkg_install "lm_sensors" "coretemp-module-alt"; then
     logError "Failed to install lm_sensors"
@@ -82,6 +82,4 @@ else
   # This script was executed
   echo "ERROR: This script cannot be executed"
   exit 1
-  # QN_SENSORS="f71882fg"
-  # test "${SE_ARGS[@]}"
 fi
