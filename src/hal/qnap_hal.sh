@@ -30,7 +30,20 @@
 # This is also inspired by information that can be found here:
 # https://github.com/guedou/TS-453Be/blob/master/doc/fan_control.md#running-qnap-in-a-chroot
 
+qnap_hal_dependencies() {
+  if ! pip_install "python-daemon==2.3.2"; then
+    logError "Failed to install required python modules"
+    return 1
+  fi
+}
+
 qnap_hal_install() {
+  
+  if ! qnap_hal_dependencies; then
+    logError "Failed to install dependencies"
+    return 1
+  fi
+
   local install_root
   local installer
 
@@ -174,6 +187,7 @@ QN_ROOT=$(realpath "${QN_ROOT}/../..")
 
 # Import dependencies
 source ${QN_ROOT}/external/setup/src/slf4sh.sh
+source ${QN_ROOT}/external/setup/src/python.sh
 
 if [[ -p /dev/stdin ]] && [[ -z ${BASH_SOURCE[0]} ]]; then
   # This script was piped

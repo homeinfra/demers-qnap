@@ -8,9 +8,6 @@
 AGE_KEY="homeinfra_demers"
 
 setup() {
-  declare -g DQ_ARGS=("$@")
-  logInfo "Setup called with: ${DQ_ARGS[@]}"
-
   # Make sure git is installed and configured
   if ! git_install; then
     logInfo "Failed to install git"

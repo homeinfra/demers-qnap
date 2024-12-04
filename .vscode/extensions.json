@@ -1,6 +1,7 @@
 {
   "recommendations": [
     "ms-vscode-remote.remote-ssh",
-    "signageos.signageos-vscode-sops"
+    "signageos.signageos-vscode-sops",
+    "ms-python.python"
   ]
 }
