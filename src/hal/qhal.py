@@ -13,29 +13,30 @@ import signal
 import fcntl
 
 # Define some values for the supported HAL features
-IO = namedtuple('IO', ['name', 'port', 'bit'])
+LED = namedtuple('IO', ['name', 'port', 'bit', 'desired_state'])
+BUTTON = namedtuple('IO', ['name', 'port', 'bit', 'cmd'])
 SOUND = namedtuple('SOUND', ['name', 'id'])
 
 # Define the list of LEDs
 # Apparently the first two disks have access to a blinking LED, via I2C.
 leds = [
-    IO(name='Status_Green', port=0x91, bit=2, desired_state=None),
-    IO(name='Status_Red', port=0x91, bit=3, desired_state=None),
-    IO(name='Front_USB', port=0xE1, bit=7, desired_state=None),
-    IO(name='Disk1_Present', port=0xB1, bit=2, desired_state=None),
-    IO(name='Disk2_Present', port=0xB1, bit=3, desired_state=None),
-    IO(name='Disk1_Error', port=0x81, bit=0, desired_state=None),
-    IO(name='Disk2_Error', port=0x81, bit=1, desired_state=None),
-    IO(name='Disk3_Error', port=0x81, bit=2, desired_state=None),
-    IO(name='Disk4_Error', port=0x81, bit=3, desired_state=None),
-    IO(name='Disk5_Error', port=0x81, bit=4, desired_state=None),
-    IO(name='Disk6_Error', port=0x81, bit=5, desired_state=None),
+    LED(name='Status_Green', port=0x91, bit=2, desired_state=None),
+    LED(name='Status_Red', port=0x91, bit=3, desired_state=None),
+    LED(name='Front_USB', port=0xE1, bit=7, desired_state=None),
+    LED(name='Disk1_Present', port=0xB1, bit=2, desired_state=None),
+    LED(name='Disk2_Present', port=0xB1, bit=3, desired_state=None),
+    LED(name='Disk1_Error', port=0x81, bit=0, desired_state=None),
+    LED(name='Disk2_Error', port=0x81, bit=1, desired_state=None),
+    LED(name='Disk3_Error', port=0x81, bit=2, desired_state=None),
+    LED(name='Disk4_Error', port=0x81, bit=3, desired_state=None),
+    LED(name='Disk5_Error', port=0x81, bit=4, desired_state=None),
+    LED(name='Disk6_Error', port=0x81, bit=5, desired_state=None),
 ]
 
 # Define the list of buttons
 buttons = [
-    IO(name='Reset', port=0x92, bit=1, cmd=None),
-    IO(name='USB_Copy', port=0xE2, bit=2, cmd=None),
+    BUTTON(name='Reset', port=0x92, bit=1, cmd=None),
+    BUTTON(name='USB_Copy', port=0xE2, bit=2, cmd=None),
 ]
 
 # Define the list of sounds the buzzer can generate
@@ -73,15 +74,10 @@ def handle_command(command):
     cmd = parts[0]
     args = parts[1:]
 
-    if cmd == 'status':
-        return 'QHAL Daemon is running'
-    elif cmd == 'stop':
-        os.remove(PID_FILE)
-        os._exit(0)
-    elif cmd == 'led':
+    if cmd == 'led':
         return handle_led_command(args)
-    elif cmd == 'usb':
-        return handle_usb_command(args)
+    elif cmd == 'button':
+        return handle_button_command(args)
     else:
         return f'Unknown command: {cmd}'
 
@@ -92,9 +88,8 @@ def handle_beep_command(arg):
     
     # Arguments
     sound = next((s for s in sounds if s.name == arg), None)
-    exec = f"{os.path.dirname(__file__)}/qnap_hal.sh"
     
-    os.system(f'{exec} hal_app --se_buzzer enc_id=0,mode={sound.id}')
+    os.system(f'qnap_hal hal_app --se_buzzer enc_id=0,mode={sound.id}')
 
 def handle_led_command(args):
     if len(args) != 2:
@@ -104,7 +99,7 @@ def handle_led_command(args):
     # Implement the led command logic here
     return f'LED command executed for {led_enum} with state: {state}'
 
-def handle_usb_command(args):
+def handle_button_command(args):
     if len(args) < 1:
         return 'Usage: usb -- <command>'
     usb_command = ' '.join(args)

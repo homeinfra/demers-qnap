@@ -109,7 +109,7 @@ configure_hardware() {
   fi
 
   # Test hardware by using the buzzer
-  if ! qnap_hal_invoke hal_app --se_buzzer enc_id=0,mode=14; then
+  if ! qhal beep Online; then
     logError "Failed to test buzzer"
     return 1
   fi

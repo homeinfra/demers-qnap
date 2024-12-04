@@ -52,7 +52,8 @@ qnap_hal_install() {
     return 1
   fi
 
-  install_root="${QN_ROOT}/bin/hal"
+  bin_dir="${QN_ROOT}/bin"
+  install_root="${bin_dir}/hal"
   installer="${QN_ROOT}/data/hal_${QN_ID}.tar.gz"
 
   if [[ ! -d "${install_root}" ]] || [[ -z "$( ls -A "${install_root}" )" ]] ; then
@@ -77,6 +78,23 @@ qnap_hal_install() {
   fi
 
   qnap_hal_init
+
+  # Add out bin directory to the PATH
+  if ! env_config "PATH=\${PATH}:${bin_dir}"; then
+    logError "Failed to add ${bin_dir} to the PATH"
+    return 1
+  fi
+
+  # Install symbolic links for qnap_hal.sh and qhal.py
+  if ! ln -sf "${QN_ROOT}/src/hal/qnap_hal.sh" "${bin_dir}/qnap_hal"; then
+    logError "Failed to create symbolic link for qnap_hal.sh"
+    return 1
+  fi
+  if ! ln -sf "${QN_ROOT}/src/hal/qhal.py" "${bin_dir}/qhal"; then
+    logError "Failed to create symbolic link for qhal.py"
+    return 1
+  fi
+
   return $?
 }
 
@@ -187,6 +205,7 @@ QN_ROOT=$(realpath "${QN_ROOT}/../..")
 
 # Import dependencies
 source ${QN_ROOT}/external/setup/src/slf4sh.sh
+source ${QN_ROOT}/external/setup/src/env.sh
 source ${QN_ROOT}/external/setup/src/python.sh
 
 if [[ -p /dev/stdin ]] && [[ -z ${BASH_SOURCE[0]} ]]; then
