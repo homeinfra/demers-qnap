@@ -62,11 +62,11 @@ Host Qnap
 Local tasks:
 
 - [x] HAL Support (Tested, missing APIs)
-  - [ ] Fans and sensors: lm_sensors supported
-  - [ ] USB Copy button
-  - [ ] Status, USB, LAN & WLAN LED
-  - [ ] HDD Status LED
-  - [x] Buzzer
+  - [ ] HAL button command
+  - [ ] HAL led command
+  - [ ] HAL temp command
+  - [ ] HAL fan command
+  - [x] HAL beep command
 - [ ] LCD + Buttons
 - [ ] PCI Passthrough
 - [ ] XCP-ng email notifications
