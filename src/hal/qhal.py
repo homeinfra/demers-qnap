@@ -3,6 +3,7 @@
 #
 # This script is used to handle the SuperIO chip I/O operations
 
+import ast
 from collections import namedtuple
 from datetime import datetime
 import os
@@ -16,31 +17,30 @@ import fcntl
 import logging
 
 # Define some values for the supported HAL features
-LED = namedtuple('LED', ['name', 'port', 'bit'])
-BUTTON = namedtuple('BUTTON', ['name', 'port', 'bit', 'cmd'])
+IO = namedtuple('IO', ['name', 'port', 'bit'])
 SOUND = namedtuple('SOUND', ['name', 'id'])
 SENSOR = namedtuple('SENSOR', ['name'])
 
 # Define the list of LEDs
 # Apparently the first two disks have access to a blinking LED, via I2C.
 leds = [
-  LED(name='Status_Green', port=0x91, bit=2),
-  LED(name='Status_Red', port=0x91, bit=3),
-  LED(name='Front_USB', port=0xE1, bit=7),
-  LED(name='Disk1_Present', port=0xB1, bit=2),
-  LED(name='Disk2_Present', port=0xB1, bit=3),
-  LED(name='Disk1_Error', port=0x81, bit=0),
-  LED(name='Disk2_Error', port=0x81, bit=1),
-  LED(name='Disk3_Error', port=0x81, bit=2),
-  LED(name='Disk4_Error', port=0x81, bit=3),
-  LED(name='Disk5_Error', port=0x81, bit=4),
-  LED(name='Disk6_Error', port=0x81, bit=5),
+  IO(name='Status_Green', port=0x91, bit=2),
+  IO(name='Status_Red', port=0x91, bit=3),
+  IO(name='Front_USB', port=0xE1, bit=7),
+  IO(name='Disk1_Present', port=0xB1, bit=2),
+  IO(name='Disk2_Present', port=0xB1, bit=3),
+  IO(name='Disk1_Error', port=0x81, bit=0),
+  IO(name='Disk2_Error', port=0x81, bit=1),
+  IO(name='Disk3_Error', port=0x81, bit=2),
+  IO(name='Disk4_Error', port=0x81, bit=3),
+  IO(name='Disk5_Error', port=0x81, bit=4),
+  IO(name='Disk6_Error', port=0x81, bit=5),
 ]
 
 # Define the list of buttons
 buttons = [
-  BUTTON(name='Reset', port=0x92, bit=1, cmd=None),
-  BUTTON(name='USB_Copy', port=0xE2, bit=2, cmd=None),
+  IO(name='Reset', port=0x92, bit=1),
+  IO(name='USB_Copy', port=0xE2, bit=2),
 ]
 
 # Define the list of sounds the buzzer can generate
@@ -122,11 +122,18 @@ class QhalDaemon:
             with conn:
               data = conn.recv(1024)
               if data:
-                response = self.handle_command(data.decode())
-                conn.sendall(response.encode())
+                try:
+                  response = self.handle_command(data.decode())
+                  conn.sendall(response.encode())
+                except NotImplementedError as e:
+                  conn.sendall(f'Command not yet implemented'.encode())
+                except Exception as e:
+                  self.__log.critical('Failed to handle command', exc_info=e)
+                  conn.sendall(f'Could not process command: {data.decode()}'.encode())
           except socket.timeout:
             # Run background tasks periodically
-            btnHandler.run()
+            # btnHandler.run()
+            pass
             
       # Clean-up logic here
       self.__log.info('== Daemon Exited gracefully ==')
@@ -138,6 +145,11 @@ class ButtonHandler:
   def __init__(self, logger):
     self.__log = logger
     
+    # Construct a dictionnary of buttons,
+    # where the value is the command to execute
+    self.__commands = {button: None for button in buttons}
+    self.__prev_state = {button: None for button in buttons}
+    
   def get_button(self, button):
     # Implement the button command logic here
     self.__log.info(f'Getting button {button.name} state')
@@ -147,28 +159,48 @@ class ButtonHandler:
     if len(args) < 1:
       self.__log.error(f'Invalid number of arguments: {args}')
       return 'Usage: button <name> -- <to_execute>'
-    button = args[1]
+    button = args[0]
     if button not in [button.name for button in buttons]:
       self.__log.error(f'Unknown button: {button}')
       return f'Unknown button: {button}'
     
     button = next((b for b in buttons if b.name == button), None)
     
-    if len(args) < 3:
-      # We are disabling the previous command
-      button.cmd = None
-      self.__log.info(f'Button {button} command disabled')
-      return f'Button {button} command disabled'
+    if len(args) < 2:
+      self.__log.error(f'Expected at least an empty list of arguments for the command')
+      return f'Unexpected error while configuring button {button.nameS}'
+    
+    # Parse the remaining arguments from an array with square brackets
+    to_execute = ast.literal_eval(' '.join(args[1:]))
+    if len(to_execute) == 0:
+      # We are disabling the previous command, if any
+      self.__buttons[button] = None
+      self.__log.info(f'Button {button.name} command disabled')
+      return f'Button {button.name} command disabled'
     else:
-      # Parse the remaining arguments from an array with square brackets
-      to_execute = ' '.join(args[3:])
-      self.__log.info(f'Button {button} set to execute: {to_execute}')
-      button.cmd = to_execute
-      return f'USB command set to: {usb_command}'
+      self.__buttons[button] = to_execute
+      self.__log.info(f'Button {button.name} set to execute: {to_execute}')
+      return f'Button {button.name} command set to: {to_execute}'
     
   def run(self):
-    # Implement the button command logic here
-    self.__log.info('Button handler ran')
+    for button in buttons:
+      try:
+        state = self.get_button(button)
+        if self.__prev_state[button] is None:
+          self.__log.info(f'Button {button.name} was initialized to: {state}')
+          self.__prev_state[button] = state
+        elif state != self.__prev_state[button]:
+          self.__log.info(f'Button {button.name} changed state from {self.__prev_state[button]} to {state}')
+          self.__prev_state[button] = state
+          if state == 1:
+            self.__log.info(f'Button {button.name} was released. Executing command: {self.__commands[button]}')
+            try:
+              res = os.system(self.__commands[button])
+              self.__log.info(f'Command [{self.__commands}] executed with result: {res}')
+            except Exception as e:
+              self.__log.error(f'Failed to execute command', exc_info=e)
+      except Exception as e:
+        self.__log.error(f'Failed to get button state', exc_info=e)
 
 class LedHandler:
   def __init__(self, logger):
@@ -223,6 +255,7 @@ class QhalClient:
 
   def handle_temp_command(self, arg):
     if len(arg) <= 1:
+      self.__log.error('Not enough arguments provided for temp command')
       print('Usage: temp <sensor>')
       return
     
@@ -232,6 +265,7 @@ class QhalClient:
     
   def handle_fan_command(self, arg):
     if len(arg) <= 1:
+      self.__log.error('Not enough arguments provided for fan command')
       print('Usage: fan <fan>')
       return
     
@@ -241,6 +275,7 @@ class QhalClient:
 
   def handle_beep_command(self, arg):
     if len(arg) <= 1:
+      self.__log.error('Not enough arguments provided for beep command')
       print('Usage: beep <sound>')
       return
     
@@ -255,6 +290,7 @@ def start_daemon(logger):
       try:
         pid = int(f.read().strip())
         os.kill(pid, 0)
+        logger.info("Daemon is already running")
         print("Daemon is already running")
         return
       except ProcessLookupError:
@@ -282,12 +318,14 @@ def stop_daemon(logger):
         pid = int(f.read().strip())
         os.kill(pid, signal.SIGTERM)
         os.remove(PID_FILE)
+        logger.info("Daemon stopped")
         print("Daemon stopped")
       except ProcessLookupError:
         logger.warning("Stale PID file found. Daemon is not running")
         os.remove(PID_FILE)
         print("Daemon is not running")
   else:
+    logger.info("Daemon was not running")
     print("Daemon is not running")
 
 def status_daemon(logger):
@@ -296,12 +334,14 @@ def status_daemon(logger):
       try:
         pid = int(f.read().strip())
         os.kill(pid, 0)
+        logger.info("Daemon is running")
         print("Daemon is running")
       except ProcessLookupError:
         logger.warning("Stale PID file found. Daemon is not running")
         os.remove(PID_FILE)
         print("Daemon is not running")
   else:
+    logger.info("Daemon is not running")
     print("Daemon is not running")
 
 def main():
@@ -326,7 +366,6 @@ def main():
       elif args.command == 'fan':
         client.handle_fan_command(args.fan)
       else:
-        print(args)
         command = f"{' '.join(str(v) for v in vars(args).values() if v is not None)}"
         logger.info(f"Sending command to daemon: {command}")
         with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as client_socket:
@@ -334,6 +373,7 @@ def main():
             client_socket.connect(SOCKET_PATH)
             client_socket.sendall(command.encode())
             response = client_socket.recv(1024).decode()
+            logger.info(f"Response: {response}")
             print(response)
           except ConnectionRefusedError as e:
             logger.error("Could not connect to daemon. Is it running?", exc_info=e)
