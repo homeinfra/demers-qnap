@@ -8,13 +8,13 @@ from collections import namedtuple
 from datetime import datetime
 import os
 from pathlib import Path
-import sys
+from subprocess import Popen, PIPE, run
 import argparse
 import socket
 import daemon
 import signal
-import fcntl
 import logging
+from portio import ioperm, inb, outb
 
 # Define some values for the supported HAL features
 IO = namedtuple('IO', ['name', 'port', 'bit'])
@@ -74,6 +74,10 @@ SOCKET_PATH = '/tmp/qhal_daemon.sock'
 PID_FILE = '/tmp/qhal_daemon.pid'
 SOCKET_TIMEOUT = 0.1
 
+IO_REG_PORT = 0xa05
+IO_REG_DATA = IO_REG_PORT + 1
+IO_REG_COUNT = 2
+
 class QhalDaemon:
   def __init__(self):
     self.__log_config = LoggerConfig(name=f"{Path(__file__).stem}_daemon")
@@ -106,10 +110,11 @@ class QhalDaemon:
     try:
       if os.path.exists(SOCKET_PATH):
         os.remove(SOCKET_PATH)
+        
+      status = ioperm(IO_REG_PORT, IO_REG_COUNT, 1)
+      if status:
+        raise Exception('Failed to get I/O permissions')
       
-      btnHandler = ButtonHandler(self.__log)
-      ledHandler = LedHandler(self.__log)
-
       with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as server_socket:
         server_socket.bind(SOCKET_PATH)
         server_socket.listen()
@@ -132,18 +137,47 @@ class QhalDaemon:
                   conn.sendall(f'Could not process command: {data.decode()}'.encode())
           except socket.timeout:
             # Run background tasks periodically
-            # btnHandler.run()
-            pass
+            self.__btnHandler.run()
             
       # Clean-up logic here
       self.__log.info('== Daemon Exited gracefully ==')
       os._exit(0)
     except Exception as e:
       self.__log.critical('Daemon failed', exc_info=e)
+    finally:
+      status = ioperm(IO_REG_PORT, IO_REG_COUNT, 0)
+      if status:
+        self.__log.error('Failed to release I/O permissions')
 
-class ButtonHandler:
+class IOHandler:
   def __init__(self, logger):
-    self.__log = logger
+    self._log = logger
+    
+  def read_io(self, io, with_logs=True):
+    outb(io.port, IO_REG_PORT)
+    val = inb(IO_REG_DATA)
+    if with_logs:
+      self._log.info(f'Raw value read for {io.name} value: {hex(val)}')
+    val = 1 if val & (1 << io.bit) else 0
+    if with_logs:
+      self._log.info(f'Bit for {io.name}: {val}. Returning the opposite')
+    return 0 if val else 1
+
+  def write_io(self, io, value, with_logs=True):
+    outb(io.port, IO_REG_PORT)
+    pre_val = inb(IO_REG_DATA)
+    if with_logs:
+      self._log.info(f'Raw value read for {io.name} value: {hex(pre_val)}')
+    val = 0 if value else 1
+    mask = 1 << io.bit
+    post_val = pre_val & ~mask | val << io.bit
+    if with_logs:
+      self._log.info(f'Writing {hex(post_val)} ({val}) to {io.name} for bit {io.bit}')
+    outb(post_val, IO_REG_DATA)
+
+class ButtonHandler(IOHandler):
+  def __init__(self, logger):
+    super(ButtonHandler, self).__init__(logger)
     
     # Construct a dictionnary of buttons,
     # where the value is the command to execute
@@ -152,77 +186,89 @@ class ButtonHandler:
     
   def get_button(self, button):
     # Implement the button command logic here
-    self.__log.info(f'Getting button {button.name} state')
-    raise NotImplementedError('Not implemented')
+    return self.read_io(button, with_logs=False)
     
   def command(self, args):
     if len(args) < 1:
-      self.__log.error(f'Invalid number of arguments: {args}')
+      self._log.error(f'Invalid number of arguments: {args}')
       return 'Usage: button <name> -- <to_execute>'
-    button = args[0]
-    if button not in [button.name for button in buttons]:
-      self.__log.error(f'Unknown button: {button}')
-      return f'Unknown button: {button}'
+    if args[0] not in [btn.name for btn in buttons]:
+      self._log.error(f'Unknown button: {args[0]}')
+      return f'Unknown button: {args[0]}'
     
-    button = next((b for b in buttons if b.name == button), None)
+    button = next((b for b in buttons if b.name == args[0]), None)
     
     if len(args) < 2:
-      self.__log.error(f'Expected at least an empty list of arguments for the command')
-      return f'Unexpected error while configuring button {button.nameS}'
+      self._log.error(f'Expected at least an empty list of arguments for the command')
+      return f'Unexpected error while configuring button {button.name}'
     
     # Parse the remaining arguments from an array with square brackets
     to_execute = ast.literal_eval(' '.join(args[1:]))
     if len(to_execute) == 0:
       # We are disabling the previous command, if any
-      self.__buttons[button] = None
-      self.__log.info(f'Button {button.name} command disabled')
+      self.__commands[button] = None
+      self._log.info(f'Button {button.name} command disabled')
       return f'Button {button.name} command disabled'
     else:
-      self.__buttons[button] = to_execute
-      self.__log.info(f'Button {button.name} set to execute: {to_execute}')
-      return f'Button {button.name} command set to: {to_execute}'
+      before = self.__commands[button]
+      self.__commands[button] = to_execute
+      self._log.info(f'Button {button.name} set to execute: {self.__commands[button]}. Before: {before}')
+      return f'Button {button.name} command set to: {self.__commands[button]}'
     
-  def run(self):
+  def run(self):    
     for button in buttons:
       try:
         state = self.get_button(button)
         if self.__prev_state[button] is None:
-          self.__log.info(f'Button {button.name} was initialized to: {state}')
+          self._log.info(f'Button {button.name} was initialized to: {state}')
           self.__prev_state[button] = state
         elif state != self.__prev_state[button]:
-          self.__log.info(f'Button {button.name} changed state from {self.__prev_state[button]} to {state}')
+          self._log.info(f'Button {button.name} changed state from {self.__prev_state[button]} to {state}')
           self.__prev_state[button] = state
-          if state == 1:
-            self.__log.info(f'Button {button.name} was released. Executing command: {self.__commands[button]}')
+          if state == 0:
+            self._log.info(f'Button {button.name} was released. Executing command: {self.__commands[button]}')
             try:
-              res = os.system(self.__commands[button])
-              self.__log.info(f'Command [{self.__commands}] executed with result: {res}')
+              if self.__commands[button] is not None:
+                res = Popen(self.__commands[button], stdout=PIPE, stderr=PIPE)
+                res.communicate()
+                self._log.info(f'Command [{self.__commands[button]}] executed with result: {res.returncode}')
+                if res.returncode:
+                  self._log.error(f'Command failed with return code: {res.returncode}. Stderr: {res.stderr}. Stdout: {res.stdout}. Stdout: {res.stdout}')
+              else:
+                self._log.info(f'No command configured for button {button.name}')
             except Exception as e:
-              self.__log.error(f'Failed to execute command', exc_info=e)
+              self._log.error(f'Failed to execute command', exc_info=e)
+          else:
+            self._log.info(f'Button {button.name} was pressed')
       except Exception as e:
-        self.__log.error(f'Failed to get button state', exc_info=e)
+        self._log.error(f'Failed to get button state', exc_info=e)
 
-class LedHandler:
+class LedHandler(IOHandler):
   def __init__(self, logger):
-    self.__log = logger
+    super(LedHandler, self).__init__(logger)
     
   def set_led(self, led, state):
     # Implement the led command logic here
-    self.__log.info(f'Setting LED {led.name} to {state}')
-    raise NotImplementedError('Not implemented')
+    self._log.info(f'Setting LED {led.name} to {state}')
+    if state == 'on':
+      self.write_io(led, 1)
+    elif state == 'off':
+      self.write_io(led, 0)
+    else:
+      raise ValueError(f'Invalid state: {state}')
     
   def get_led(self, led):
     # Implement the led command logic here
-    self.__log.info(f'Getting LED {led.name} state')
-    raise NotImplementedError('Not implemented')
+    self._log.info(f'Getting LED {led.name} state')
+    return "on" if self.read_io(led) else "off"
     
   def command(self, args):
     if len(args) > 2 or len(args) < 1:
-      self.__log.error(f'Invalid number of arguments: {args}')
+      self._log.error(f'Invalid number of arguments: {args}')
       return 'Usage: led <enum> <on|off>'
     
     if args[0] not in [led.name for led in leds]:
-      self.__log.error(f'Unknown LED: {args[0]}')
+      self._log.error(f'Unknown LED: {args[0]}')
       return f'Unknown LED: {args[0]}'
     
     led = next((l for l in leds if l.name == args[0]), None)
@@ -231,7 +277,7 @@ class LedHandler:
         state = self.get_led(led)
         return f'LED {led.name} is {state}'
       except Exception as e:
-        self.__log.error(f'Failed to get LED state', exc_info=e)
+        self._log.error(f'Failed to get LED state', exc_info=e)
         return f'Failure to get LED state: {e.message}'
     else:
       state = args[1]
@@ -241,13 +287,13 @@ class LedHandler:
         self.set_led(led, state)
         return f'Ok. LED {led.name} is now {state}'
       except Exception as e:
-        self.__log.error(f'Failed to set LED state', exc_info=e)
+        self._log.error(f'Failed to set LED state', exc_info=e)
         return f'Failure to set LED state: {e.message}'
     
 
   def run(self):
     # Implement the led command logic here
-    self.__log.info('Led handler ran')
+    self._log.info('Led handler ran')
 
 class QhalClient:
   def __init__(self, logger):
@@ -282,7 +328,11 @@ class QhalClient:
     # Arguments
     sound = next((s for s in sounds if s.name == arg), None)
     
-    os.system(f'qnap_hal hal_app --se_buzzer enc_id=0,mode={sound.id}')
+    res = Popen(['qnap_hal', 'hal_app', '--se_buzzer', f"enc_id=0,mode={sound.id}"], stdout=PIPE, stderr=PIPE)
+    res.communicate()
+    if res.returncode:
+      self.__log.error(f"Failed to play sound: {sound.name}. Return Code: {res.returncode}. Stderr: {res.stderr}. Stdout: {res.stdout}")
+      print(f"Failed to play sound: {sound.name}")
 
 def start_daemon(logger):
   if os.path.exists(PID_FILE):
