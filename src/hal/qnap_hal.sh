@@ -31,7 +31,12 @@
 # https://github.com/guedou/TS-453Be/blob/master/doc/fan_control.md#running-qnap-in-a-chroot
 
 qnap_hal_dependencies() {
-  if ! pip_install "python-daemon==2.3.2"; then
+  if ! pkg_install "python3" "python3-pip" "python3-devel"; then
+    logError "Failed to install python3"
+    return 1
+  fi
+
+  if ! pip_install "python-daemon==2.3.2" "portio==0.6.2"; then
     logError "Failed to install required python modules"
     return 1
   fi
@@ -206,6 +211,7 @@ QN_ROOT=$(realpath "${QN_ROOT}/../..")
 # Import dependencies
 source ${QN_ROOT}/external/setup/src/slf4sh.sh
 source ${QN_ROOT}/external/setup/src/env.sh
+source ${QN_ROOT}/external/setup/src/pkg.sh
 source ${QN_ROOT}/external/setup/src/python.sh
 
 if [[ -p /dev/stdin ]] && [[ -z ${BASH_SOURCE[0]} ]]; then
