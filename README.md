@@ -61,11 +61,11 @@ Host Qnap
 
 Local tasks:
 
-- [x] HAL Support (Tested, missing APIs)
-  - [ ] HAL button command
-  - [ ] HAL led command
-  - [ ] HAL temp command
-  - [ ] HAL fan command
+- [x] HAL Support
+  - [x] HAL button command
+  - [x] HAL led command
+  - [x] HAL temp command
+  - [x] HAL fan command
   - [x] HAL beep command
 - [ ] LCD + Buttons
 - [ ] PCI Passthrough

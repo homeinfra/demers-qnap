@@ -506,20 +506,37 @@ def stop_daemon(logger):
     logger.info("Daemon was not running")
     print("Daemon is not running")
 
-def status_daemon(logger):
+def is_daemon_running(logger):
   if os.path.exists(PID_FILE):
     with open(PID_FILE, 'r') as f:
       try:
         pid = int(f.read().strip())
         os.kill(pid, 0)
         logger.info("Daemon is running")
-        print("Daemon is running")
+        return True
       except ProcessLookupError:
-        logger.warning("Stale PID file found. Daemon is not running")
+        logger.warning("Stale PID file found. Removing it.")
         os.remove(PID_FILE)
-        print("Daemon is not running")
+  logger.info("Daemon is not running")
+  return False
+
+def send_command_to_daemon(logger, command):
+  logger.info(f"Sending command to daemon: {command}")
+  with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as client_socket:
+    try:
+      client_socket.connect(SOCKET_PATH)
+      client_socket.sendall(command.encode())
+      response = client_socket.recv(1024).decode()
+      logger.info(f"Response: {response}")
+      print(response)
+    except ConnectionRefusedError as e:
+      logger.error("Could not connect to daemon. Is it running?", exc_info=e)
+      print("No response from daemon. Is it running?")
+
+def status_daemon(logger):
+  if is_daemon_running(logger):
+    print("Daemon is running")
   else:
-    logger.info("Daemon is not running")
     print("Daemon is not running")
 
 def main():
@@ -531,6 +548,7 @@ def main():
     
     args = parse()
     if args is not None:
+      cmd = f"{' '.join(str(v) for v in vars(args).values() if v is not None)}"
       logger.info(f"Received a valid command: {args}")
       if args.command == 'start':
         start_daemon(logger)
@@ -545,18 +563,7 @@ def main():
       elif args.command == 'fan':
         client.handle_fan_command(args.fan)
       else:
-        command = f"{' '.join(str(v) for v in vars(args).values() if v is not None)}"
-        logger.info(f"Sending command to daemon: {command}")
-        with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as client_socket:
-          try:
-            client_socket.connect(SOCKET_PATH)
-            client_socket.sendall(command.encode())
-            response = client_socket.recv(1024).decode()
-            logger.info(f"Response: {response}")
-            print(response)
-          except ConnectionRefusedError as e:
-            logger.error("Could not connect to daemon. Is it running?", exc_info=e)
-            print("No response from daemon. Is it running?")
+        send_command_to_daemon(logger, cmd)
     else:
       logger.error('No arguments provided')
     
