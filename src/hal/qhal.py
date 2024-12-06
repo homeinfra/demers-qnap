@@ -85,6 +85,8 @@ class QhalDaemon:
     self.__btnHandler = ButtonHandler(self.__log)
     self.__ledHandler = LedHandler(self.__log)
     
+    self.__test_mode = False
+    
     # Set up signal handlers
     signal.signal(signal.SIGTERM, self.__handle_signal)
     signal.signal(signal.SIGINT, self.__handle_signal)
@@ -102,6 +104,17 @@ class QhalDaemon:
       return self.__ledHandler.command(args)
     elif cmd == 'button':
       return self.__btnHandler.command(args)
+    elif cmd == 'test':
+      if len(args) != 1:
+        return 'Usage: test <on|off>'
+      if args[0] == 'on':
+        self.__test_mode = True
+        return 'Test mode enabled'
+      elif args[0] == 'off':
+        self.__test_mode = False
+        return 'Test mode disabled'
+      else :
+        return 'Usage: test <on|off>'
     else:
       return f'Unknown command: {cmd}'
 
@@ -137,9 +150,15 @@ class QhalDaemon:
                   conn.sendall(f'Could not process command: {data.decode()}'.encode())
           except socket.timeout:
             # Run background tasks periodically
-            self.__btnHandler.run()
+            self.__btnHandler.run(self.__test_mode)
+            self.__ledHandler.run(self.__test_mode)
             
       # Clean-up logic here
+      if self.__test_mode:
+        self.__test_mode = False
+        # We need to restore the LEDs to their previous state before exiting
+        self.__ledHandler.run(self.__test_mode)
+        
       self.__log.info('== Daemon Exited gracefully ==')
       os._exit(0)
     except Exception as e:
@@ -157,22 +176,22 @@ class IOHandler:
     outb(io.port, IO_REG_PORT)
     val = inb(IO_REG_DATA)
     if with_logs:
-      self._log.info(f'Raw value read for {io.name} value: {hex(val)}')
+      self._log.debug(f'Raw value read for {io.name} value: {hex(val)}')
     val = 1 if val & (1 << io.bit) else 0
     if with_logs:
-      self._log.info(f'Bit for {io.name}: {val}. Returning the opposite')
+      self._log.debug(f'Bit for {io.name}: {val}. Returning the opposite')
     return 0 if val else 1
 
   def write_io(self, io, value, with_logs=True):
     outb(io.port, IO_REG_PORT)
     pre_val = inb(IO_REG_DATA)
     if with_logs:
-      self._log.info(f'Raw value read for {io.name} value: {hex(pre_val)}')
+      self._log.debug(f'Raw value read for {io.name} value: {hex(pre_val)}')
     val = 0 if value else 1
     mask = 1 << io.bit
-    post_val = pre_val & ~mask | val << io.bit
+    post_val = (pre_val & ~mask) | (val << io.bit)
     if with_logs:
-      self._log.info(f'Writing {hex(post_val)} ({val}) to {io.name} for bit {io.bit}')
+      self._log.debug(f'Writing {hex(post_val)} ({val}) to {io.name} for bit {io.bit}')
     outb(post_val, IO_REG_DATA)
 
 class ButtonHandler(IOHandler):
@@ -215,31 +234,42 @@ class ButtonHandler(IOHandler):
       self._log.info(f'Button {button.name} set to execute: {self.__commands[button]}. Before: {before}')
       return f'Button {button.name} command set to: {self.__commands[button]}'
     
-  def run(self):    
+  def run(self, is_test_mode):    
     for button in buttons:
       try:
         state = self.get_button(button)
-        if self.__prev_state[button] is None:
-          self._log.info(f'Button {button.name} was initialized to: {state}')
-          self.__prev_state[button] = state
-        elif state != self.__prev_state[button]:
-          self._log.info(f'Button {button.name} changed state from {self.__prev_state[button]} to {state}')
-          self.__prev_state[button] = state
-          if state == 0:
-            self._log.info(f'Button {button.name} was released. Executing command: {self.__commands[button]}')
-            try:
-              if self.__commands[button] is not None:
-                res = Popen(self.__commands[button], stdout=PIPE, stderr=PIPE)
-                res.communicate()
-                self._log.info(f'Command [{self.__commands[button]}] executed with result: {res.returncode}')
-                if res.returncode:
-                  self._log.error(f'Command failed with return code: {res.returncode}. Stderr: {res.stderr}. Stdout: {res.stdout}. Stdout: {res.stdout}')
-              else:
-                self._log.info(f'No command configured for button {button.name}')
-            except Exception as e:
-              self._log.error(f'Failed to execute command', exc_info=e)
-          else:
-            self._log.info(f'Button {button.name} was pressed')
+        if is_test_mode:
+          if state == 1:
+            self._log.info(f'Button {button.name} was pressed while in test mode')
+            # Do a beep
+            res = Popen(['qhal', 'beep', 'Beep'], stdout=PIPE, stderr=PIPE)
+            res.communicate()
+            if res.returncode:
+              self._log.error(f'Beep failed with return code: {res.returncode}. Stderr: {res.stderr}. Stdout: {res.stdout}. Stdout: {res.stdout}')
+            else:
+              self._log.info(f'Beep executed with result: {res.returncode}')
+        else :
+          if self.__prev_state[button] is None:
+            self._log.info(f'Button {button.name} was initialized to: {state}')
+            self.__prev_state[button] = state
+          elif state != self.__prev_state[button]:
+            self._log.info(f'Button {button.name} changed state from {self.__prev_state[button]} to {state}')
+            self.__prev_state[button] = state
+            if state == 0:
+              self._log.info(f'Button {button.name} was released. Executing command: {self.__commands[button]}')
+              try:
+                if self.__commands[button] is not None:
+                  res = Popen(self.__commands[button], stdout=PIPE, stderr=PIPE)
+                  res.communicate()
+                  self._log.info(f'Command [{self.__commands[button]}] executed with result: {res.returncode}')
+                  if res.returncode:
+                    self._log.error(f'Command failed with return code: {res.returncode}. Stderr: {res.stderr}. Stdout: {res.stdout}. Stdout: {res.stdout}')
+                else:
+                  self._log.info(f'No command configured for button {button.name}')
+              except Exception as e:
+                self._log.error(f'Failed to execute command', exc_info=e)
+            else:
+              self._log.info(f'Button {button.name} was pressed')
       except Exception as e:
         self._log.error(f'Failed to get button state', exc_info=e)
 
@@ -247,20 +277,29 @@ class LedHandler(IOHandler):
   def __init__(self, logger):
     super(LedHandler, self).__init__(logger)
     
-  def set_led(self, led, state):
-    # Implement the led command logic here
-    self._log.info(f'Setting LED {led.name} to {state}')
+    # Data used for test mode only
+    self.__cur_led = None
+    self.__was_in_test_mode = False
+    self.__prev_state = {l: None for l in leds}
+    self.__next_state = "off"
+    
+  def set_led(self, led, state, with_logs=True):
+    if with_logs:
+      self._log.info(f'Setting LED {led.name} to {state}')
     if state == 'on':
-      self.write_io(led, 1)
+      self.write_io(led, 1, with_logs=with_logs)
+      self.__prev_state[led] = "on"
     elif state == 'off':
-      self.write_io(led, 0)
+      self.write_io(led, 0, with_logs=with_logs)
+      self.__prev_state[led] = "off"
     else:
       raise ValueError(f'Invalid state: {state}')
     
-  def get_led(self, led):
-    # Implement the led command logic here
-    self._log.info(f'Getting LED {led.name} state')
-    return "on" if self.read_io(led) else "off"
+  def get_led(self, led, with_logs=True):
+    res = "on" if self.read_io(led, with_logs=with_logs) else "off"
+    if with_logs:
+      self._log.info(f'Reading LED {led.name} state: {res}')
+    return res
     
   def command(self, args):
     if len(args) > 2 or len(args) < 1:
@@ -291,10 +330,45 @@ class LedHandler(IOHandler):
         return f'Failure to set LED state: {e.message}'
     
 
-  def run(self):
+  def run(self, is_test_mode):
     # Implement the led command logic here
-    self._log.info('Led handler ran')
-
+    # Normally there is nothing to do, unless we are in test mode
+    if is_test_mode and not self.__was_in_test_mode:
+      # Entering test mode
+      self.__was_in_test_mode = True
+      self.__cur_led = None
+      self._log.info('LEDs entering test mode')
+      # Read previous state for all leds its unkown
+      for led in leds:
+        if self.__prev_state[led] is None:
+          self.__prev_state[led] = self.get_led(led)
+      self._log.info('LEDs previous state has been saved')
+    elif not is_test_mode and self.__was_in_test_mode:
+      # Exiting test mode
+      self.__was_in_test_mode = False
+      self.__cur_led = None
+      self._log.info('LEDs exiting test mode')
+      # Restore previous state for all leds
+      for led in leds:
+        self.set_led(led, self.__prev_state[led])
+      self._log.info('LEDs have been restored to previous state')
+    
+    if is_test_mode:
+      if self.__cur_led is None:
+        self.__cur_led = leds[0]
+      else:
+        cur_index = leds.index(self.__cur_led)
+        if cur_index < len(leds) - 1:
+          self.__cur_led = leds[cur_index + 1]
+        else:
+          self.__cur_led = leds[0]
+          if self.__next_state == "off":
+            self.__next_state = "on"
+          else:
+            self.__next_state = "off"
+      
+      self.set_led(self.__cur_led, self.__next_state, with_logs=False)
+      
 class QhalClient:
   def __init__(self, logger):
     self.__log = logger
@@ -305,9 +379,45 @@ class QhalClient:
       print('Usage: temp <sensor>')
       return
     
-    # Arguments
+    # Arguments   
     sensor = next((s for s in temps if s.name == arg), None)
     self.__log.info(f"Reading temperature for sensor: {sensor.name}")
+    if sensor is None:
+      self.__log.error(f"Unknown sensor: {arg}")
+      print(f"Unknown sensor: {arg}")
+      return
+    
+    for sensor in temps:
+      if sensor.name == arg and sensor.name == 'CPU':
+        res = self.read_sensor('k10temp-pci-00c3', 'temp1_input')
+        print(f"+{res}°C")
+        return
+      elif sensor.name == arg and sensor.name == 'Eth2':
+        res = self.read_sensor('eth2-pci-0300', 'temp1_input')
+        print(f"+{res}°C")
+        return
+      elif sensor.name == arg and sensor.name == 'Temp1':
+        res = self.read_sensor('f71869a-isa-0a20', 'temp1_input')
+        print(f"+{res}°C")
+        return
+      elif sensor.name == arg and sensor.name == 'Temp2':
+        res = self.read_sensor('f71869a-isa-0a20', 'temp2_input')
+        print(f"+{res}°C")
+        return
+      elif sensor.name == arg and sensor.name == 'Temp3':
+        res = self.read_sensor('f71869a-isa-0a20', 'temp3_input')
+        print(f"+{res}°C")
+        return
+      
+    self.__log.error(f"Unsupported sensor: {arg}")
+    print(f"Unsupported sensor: {arg}")
+    return
+    
+  def read_sensor(self, chip, key) -> str:
+    res = run(['sensors', '-u', f'{chip}'], stdout=PIPE, stderr=PIPE, universal_newlines=True, check=True)
+    self.__log.debug(f"Reading sensor: {chip}. Result: {res.stdout}")
+    res = {line.split(':')[0].strip(): line.split(':')[1].strip() for line in res.stdout.split('\n') if ':' in line and len(line.split(':')) == 2}
+    return res[key]
     
   def handle_fan_command(self, arg):
     if len(arg) <= 1:
@@ -318,6 +428,24 @@ class QhalClient:
     # Arguments
     fan = next((s for s in fans if s.name == arg), None)
     self.__log.info(f"Reading fan speed for fan: {fan.name}")
+    if fan is None:
+      self.__log.error(f"Unknown fan: {arg}")
+      print(f"Unknown fan: {arg}")
+      return
+    
+    for sensor in fans:
+      if sensor.name == arg and sensor.name == 'Fan1':
+        res = self.read_sensor('f71869a-isa-0a20', 'fan1_input')
+        print(f"{res.split('.')[0]} RPM")
+        return
+      elif sensor.name == arg and sensor.name == 'Fan2':
+        res = self.read_sensor('f71869a-isa-0a20', 'fan2_input')
+        print(f"{res.split('.')[0]} RPM")
+        return
+      
+    self.__log.error(f"Unsupported fan: {arg}")
+    print(f"Unsupported fan: {arg}")
+    return
 
   def handle_beep_command(self, arg):
     if len(arg) <= 1:
@@ -345,7 +473,6 @@ def start_daemon(logger):
         return
       except ProcessLookupError:
         logger.warning("Stale PID file found. Removing it.")
-        print("Stale PID file found. Removing it.")
         os.remove(PID_FILE)
   
   logger.info('Starting daemon...')
@@ -354,6 +481,7 @@ def start_daemon(logger):
   if pid > 0:
       # Parent process
       logger.info(f"Forked PID {pid}")
+      print("Daemon started")
   else:
       # Child process
       with daemon.DaemonContext():
@@ -402,7 +530,8 @@ def main():
     client = QhalClient(logger)
     
     args = parse()
-    if args is not None:    
+    if args is not None:
+      logger.info(f"Received a valid command: {args}")
       if args.command == 'start':
         start_daemon(logger)
       elif args.command == 'stop':
@@ -462,6 +591,9 @@ def parse():
   
   fan_parser = subparsers.add_parser('fan', help='Read fan speed')
   fan_parser.add_argument('fan', choices=[fan.name for fan in fans], help='Fan to read')
+  
+  test_parser = subparsers.add_parser('test', help='Test Mode (Christmas Tree)')
+  test_parser.add_argument('mode', choices=['on', 'off'], help='Test mode')
 
   args = parser.parse_args()
   if args.command is None:
@@ -494,7 +626,7 @@ class LoggerConfig:
     self.__file.setLevel(level)
     self.__file.setFormatter(logging.Formatter(format, datefmt))
     
-    self.__logger.addHandler(self.__console)
+    # self.__logger.addHandler(self.__console)
     self.__logger.addHandler(self.__file)
     
     self.reconfigure()
