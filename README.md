@@ -75,13 +75,15 @@ Local tasks:
 - [x] mdadm scrubbing and monitoring alerts
 - [ ] NUT UPS support
 - [ ] NetData (hardware monitoring)
+- [ ] Local ISO storage
+- [ ] Local VM storage
 - [ ] Skeleton of a shutdown and startup script and daemon. Should hook full shutdown to USB_Copy button
 
-Remote tasks:
+Horizon tasks:
 - [ ] Network configuration
+- [ ] Join pool
 - [ ] TrueNAS VM creation and configuration
-- [ ] Linter (pre-commit hook)
 
 ### Nice to have
 
-- [ ] When generating a new key for github, use the github CLI to install it automatically
+- [ ] Linter (pre-commit hook configuration) and cleanup existing code
