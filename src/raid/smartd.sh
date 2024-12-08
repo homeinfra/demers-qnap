@@ -85,7 +85,7 @@ else
   RAID_MSG=\$(cat <<END
 Drive \${SMARTD_DEVICE} is part of RAID array: \${RAID_ARRAY}
 
-mdadm --detail \${RAID_ARRAY}
+\$(/usr/sbin/mdadm --detail \${RAID_ARRAY})
 END
 )
 fi
