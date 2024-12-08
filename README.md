@@ -67,7 +67,8 @@ Local tasks:
   - [x] HAL temp command
   - [x] HAL fan command
   - [x] HAL beep command
-- [ ] LCD + Buttons (Been unable to make it work. See branch feature/lcd)
+  - [ ] LCD + Buttons (Been unable to make it work. See branch feature/lcd)
+- [ ] Limit number of ssh-agent isntances created by .bashrc
 - [ ] PCI Passthrough
 - [x] XCP-ng email notifications
 - [ ] mdadm periodic scrubbing

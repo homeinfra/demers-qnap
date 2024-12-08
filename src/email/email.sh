@@ -23,8 +23,8 @@ email_install_prerequisites() {
 email_install() {
   local bin_dir="${EM_ROOT}/bin"
   local config_dir="${bin_dir}/.config"
-  local mail_config_src="${EM_ROOT}/data/sendemail.env"
-  local mail_config_dst="${config_dir}/sendemail.conf"
+  local mail_config_src="${EM_ROOT}/data/email.env"
+  local mail_config_dst="${config_dir}/$(basename "${mail_config_src}")"
 
   if [[ -f "${mail_config_src}" ]]; then
     logInfo "Mail configuration found"
@@ -47,6 +47,26 @@ email_install() {
     return 1
   fi
 
+  # Add include guard to email config
+  local file
+  file=$(cat <<EOF
+# Configuration options for sending emails
+
+if [[ -z "\${GUARD_EMAIL_ENV}" ]]; then
+  GUARD_EMAIL_ENV=1
+else
+  return
+fi
+
+$(cat "${mail_config_dst}")
+EOF
+  )
+  echo "${file}" > "${mail_config_dst}"
+  if [[ $? -ne 0 ]]; then
+    logError "Failed to add include guard to email configuration"
+    return 1
+  fi
+
   # Load gmail configuration
   local gmail_config="${EM_ROOT}/data/gmail.env"
   if [[ -f "${gmail_config}" ]]; then
@@ -62,6 +82,15 @@ email_install() {
 
   # Configure ssmtp
   local ssmtp_conf="/etc/ssmtp/ssmtp.conf"
+  local ssmtp_conf_backp="${ssmtp_conf}.bak"
+  if [[ -f "${ssmtp_conf}" ]]; then
+    if [[ ! -f "${ssmtp_conf_backp}" ]]; then
+      cp "${ssmtp_conf}" "${ssmtp_conf_backp}"
+    fi
+  else 
+    logWarn "ssmtp configuration was not found"
+  fi
+
   if config_save "${ssmtp_conf}" "mailhub" "${GMAIL_HUB}"; then
     logInfo "Configured mailhub"
   else
@@ -105,26 +134,48 @@ email_install() {
 
 # Import email configuration
 source "${mail_config_dst}"
+source "${EM_ROOT}/external/setup/src/slf4sh.sh"
 
-SUBJECT="Test email from \${HOSTNAME}"
-(
-   echo ""
-   echo "\${SUBJECT}"
-   echo ""
-   echo "Arguments: (\$#):"
-  for arg in "\$@"; do
-      echo "  \${arg}"
-   done
-   echo ""
-   echo "This is simply a test email"
-   echo ""
-) | \${MAIL_CMD} -s "\${SUBJECT}" -r \${SENDER} \${SYSADMIN}
+SUBJECT="[\$(hostname)] Test email"
+MESSAGE=\$(cat <<END
+
+Subject: \${SUBJECT}
+
+Arguments: (\$#):"
+\$(for arg in "\$@"; do echo "  \${arg}"; done)
+
+This is simply a test email
+
+END
+)
+
+# Logging it
+logInfo <<END
+Logging test email:
+
+\${MESSAGE}
+END
+
+echo "\${MESSAGE}" | \${MAIL_CMD} -s "\${SUBJECT}" -r \${SENDER} \${SYSADMIN}
+if [[ \$? -ne 0 ]]; then
+  logError "Failed to send test email"
+  exit 1
+else
+  logInfo "Test email sent succesfully"
+fi
+
 EOF
   )
 
+  logInfo "Installing email test script"
   echo "${file}" > "${bin_dir}/email_test.sh"
+  if [[ $? -ne 0 ]]; then
+    logWarn "Failed to install email test script"
+  fi
   chmod +x "${bin_dir}/email_test.sh"
-  logInfo "Installed email test script"
+  if [[ $? -ne 0 ]]; then
+    logWarn "Failed to make email test script executable"
+  fi
 
   # Install the XCP-ng notification test script
   file=$(cat <<EOF
@@ -134,32 +185,55 @@ EOF
 # Test XCP-ng notifications
 # (This file was automatically generated during installation)
 
+source "${EM_ROOT}/external/setup/src/slf4sh.sh"
+
 if ! command -v xe &>/dev/null; then
-  echo "XCP-ng not detected"
+  logError "XCP-ng not detected"
   exit 1
 fi
 
+# XCP-ng message levels
+LVL_ERROR=1
+LVL_WARN=2
+LVL_INFO=3
+LVL_DEBUG=4
+LVL_TRACE=5
+
 if ! res=\$(xe host-list name-label=\$(hostname) --minimal); then
-  echo "Failed to get host"
+  logError "Failed to get host"
   exit 1
 elif [[ -z "\${res}" ]]; then
-  echo "Host not found"
+  logError "Host not found"
   exit 1
 elif [[ "\${res}" == *","* ]]; then
-  echo "Multiple hosts found"
+  logError "Multiple hosts found"
   exit 1
 else
   HOST_ID=\${res}
 fi
 
-xe message-create name="Test" body="This is a test notification" priority=3 host-uuid=\${HOST_ID}
+xe message-create name="Test" body="This is a test notification" priority=\${LVL_INFO} host-uuid=\${HOST_ID}
+if [[ \$? -ne 0 ]]; then
+  logError "Failed to send notification to XCP-ng"
+  exit 1
+else
+  logInfo "Test notification sent succesfully"
+fi
 
 EOF
   )
 
+  logInfo "Installing notification test script"
   echo "${file}" > "${bin_dir}/notification_test.sh"
+  if [[ $? -ne 0 ]]; then
+    logWarn "Failed to install notification test script"
+  fi
   chmod +x "${bin_dir}/notification_test.sh"
-  logInfo "Installed notification test script"
+  if [[ $? -ne 0 ]]; then
+    logWarn "Failed to make notification test script executable"
+  fi
+
+  return 0
 }
 
 ###########################
@@ -194,6 +268,7 @@ elif [[ ${BASH_SOURCE[0]} != "${0}" ]]; then
   :
 else
   # This script was executed
-  echo "ERROR: This script cannot be executed"
-  exit 1
+  # echo "ERROR: This script cannot be executed"
+  # exit 1
+  email_install
 fi
