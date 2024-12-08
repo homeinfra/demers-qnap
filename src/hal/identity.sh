@@ -3,6 +3,12 @@
 #
 # Script to indeitify the hardware we are running on
 
+if [[ -z ${GUARD_QN_ID_SH} ]]; then
+  GUARD_QN_ID_SH=1
+else
+  return
+fi
+
 # Identify the hardware by a string
 #
 # Parameters:

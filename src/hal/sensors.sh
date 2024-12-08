@@ -3,6 +3,12 @@
 #
 # This script is used to configure the qnap sensors
 
+if [[ -z ${GUARD_QN_SENSORS_SH} ]]; then
+  GUARD_QN_SENSORS_SH=1
+else
+  return
+fi
+
 sensor_install() {
   # Make sure we have the right packages
   if ! pkg_install "lm_sensors" "coretemp-module-alt"; then

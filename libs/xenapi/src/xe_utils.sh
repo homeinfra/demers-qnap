@@ -3,6 +3,12 @@
 #
 # Utility functions for XenAPI usage
 
+if [[ -z ${GUARD_XE_UTILS_SH} ]]; then
+  GUARD_XE_UTILS_SH=1
+else
+  return
+fi
+
 # Parse a list of parameters
 #
 # Parameters:

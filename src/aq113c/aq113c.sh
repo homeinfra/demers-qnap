@@ -3,7 +3,11 @@
 #
 # This script installs drivers and configures the AQ113C device (10 GBe NIC)
 
-
+if [[ -z ${GUARD_QN_AQ113C_SH} ]]; then
+  GUARD_QN_AQ113C_SH=1
+else
+  return
+fi
 
 # Install AQ113C drivers
 aq113c_install() {

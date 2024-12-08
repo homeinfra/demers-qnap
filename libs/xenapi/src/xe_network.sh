@@ -3,6 +3,12 @@
 #
 # API for XCP-ng network configuration
 
+if [[ -z ${GUARD_XE_NETWORK_SH} ]]; then
+  GUARD_XE_NETWORK_SH=1
+else
+  return
+fi
+
 # Checks if the provided NICs exists
 #
 # Parameters:
@@ -10,11 +16,11 @@
 # Returns:
 #   0: If all NICs are valid
 #   1: If any NIC is invalid
-nw_validate_nic() {
+xe_validate_nic() {
   local _macs="$@"
 
   local HOST_ID
-  if ! hs_current_host HOST_ID; then
+  if ! xe_current_host HOST_ID; then
     logError "Failed to get host"
     return 1
   fi
@@ -28,7 +34,7 @@ nw_validate_nic() {
   local mac
   for mac in $_macs; do
     logTrace "Checking if a NIC with MAC address ${mac} exists"
-    if ! nw_identify_nic "${mac}"; then
+    if ! xe_identify_nic "${mac}"; then
       logError "NIC with MAC ${mac} not found"
       return 1
     else
@@ -47,7 +53,7 @@ EOF
 #
 # Parameters:
 #   $1[in]: MAC address to lookup
-nw_identify_nic() {
+xe_identify_nic() {
   local _mac="$1"
 
   local res
@@ -67,25 +73,25 @@ nw_identify_nic() {
 ###### Startup logic ######
 ###########################
 
-NW_ARGS=("$@")
-NW_CWD=$(pwd)
-NW_ME="$(basename "$0")"
+XN_ARGS=("$@")
+XN_CWD=$(pwd)
+XN_ME="$(basename "$0")"
 
 # Get directory of this script
 # https://stackoverflow.com/a/246128
-NW_SOURCE=${BASH_SOURCE[0]}
-while [[ -L "${NW_SOURCE}" ]]; do # resolve $NW_SOURCE until the file is no longer a symlink
-  NW_ROOT=$(cd -P "$(dirname "${NW_SOURCE}")" >/dev/null 2>&1 && pwd)
-  NW_SOURCE=$(readlink "${NW_SOURCE}")
-  [[ ${NW_SOURCE} != /* ]] && NW_SOURCE=${NW_ROOT}/${NW_SOURCE} # if $NW_SOURCE was a relative symlink, we need to resolve it relative to the path where the symlink file was located
+XN_SOURCE=${BASH_SOURCE[0]}
+while [[ -L "${XN_SOURCE}" ]]; do # resolve $XN_SOURCE until the file is no longer a symlink
+  XN_ROOT=$(cd -P "$(dirname "${XN_SOURCE}")" >/dev/null 2>&1 && pwd)
+  XN_SOURCE=$(readlink "${XN_SOURCE}")
+  [[ ${XN_SOURCE} != /* ]] && XN_SOURCE=${XN_ROOT}/${XN_SOURCE} # if $XN_SOURCE was a relative symlink, we need to resolve it relative to the path where the symlink file was located
 done
-NW_ROOT=$(cd -P "$(dirname "${NW_SOURCE}")" >/dev/null 2>&1 && pwd)
-NW_ROOT=$(realpath "${NW_ROOT}/..")
+XN_ROOT=$(cd -P "$(dirname "${XN_SOURCE}")" >/dev/null 2>&1 && pwd)
+XN_ROOT=$(realpath "${XN_ROOT}/..")
 
 # Import dependencies
-source ${NW_ROOT}/../../external/setup/src/slf4sh.sh
-source ${NW_ROOT}/src/host.sh
-source ${NW_ROOT}/src/xe_utils.sh
+source ${XN_ROOT}/../../external/setup/src/slf4sh.sh
+source ${XN_ROOT}/src/xe_host.sh
+source ${XN_ROOT}/src/xe_utils.sh
 
 if [[ -p /dev/stdin ]] && [[ -z ${BASH_SOURCE[0]} ]]; then
   # This script was piped

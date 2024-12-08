@@ -67,9 +67,10 @@ Local tasks:
   - [x] HAL temp command
   - [x] HAL fan command
   - [x] HAL beep command
-- [ ] LCD + Buttons
+- [ ] LCD + Buttons (Been unable to make it work. See branch feature/lcd)
 - [ ] PCI Passthrough
-- [ ] XCP-ng email notifications
+- [x] XCP-ng email notifications
+- [ ] mdadm periodic scrubbing
 - [ ] NUT UPS support
 - [ ] NetData (hardware monitoring)
 

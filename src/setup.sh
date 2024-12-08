@@ -63,7 +63,7 @@ setup() {
 validate_hardware() {
   # Validate network interfaces
   local macs=()
-  local nw_validate_nic
+  local nic
   for nic in ${NICS}; do
     nic="${nic}_MAC"
     if [[ -n "${!nic}" ]]; then
@@ -74,7 +74,7 @@ validate_hardware() {
     fi
   done
 
-  if nw_validate_nic "${macs[@]}"; then
+  if xe_validate_nic "${macs[@]}"; then
     logInfo "All network interfaces exist"
   else
     logError "At least one NIC is invalid"
@@ -144,7 +144,7 @@ source ${DQ_ROOT}/external/setup/src/age.sh
 source ${DQ_ROOT}/external/setup/src/config.sh
 source ${DQ_ROOT}/src/hal/identity.sh
 source ${DQ_ROOT}/src/aq113c/aq113c.sh
-source ${DQ_ROOT}/libs/xenapi/src/network.sh
+source ${DQ_ROOT}/libs/xenapi/src/xe_network.sh
 source ${DQ_ROOT}/src/hal/sensors.sh
 source ${DQ_ROOT}/src/hal/qnap_hal.sh
 
