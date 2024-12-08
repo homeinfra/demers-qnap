@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT
 #
-# This script configures periodic RAID monitoring
+# This script configures periodic S.M.A.R.T tests and monitoring
 
 ###################
 ## SMARTD CONFIG ##
@@ -36,20 +36,21 @@ sd_configure() {
 source "${cfg_email}"
 source "${SD_ROOT}/external/setup/src/slf4sh.sh"
 
+SEND_XCP="true"
 if ! command -v xe &>/dev/null; then
   logError "XCP-ng not detected"
-  exit 1
+  SEND_XCP=""
 fi
 
 if ! res=\$(xe host-list name-label=\$(hostname) --minimal); then
   logError "Failed to get host"
-  exit 1
+  SEND_XCP=""
 elif [[ -z "\${res}" ]]; then
   logError "Host not found"
-  exit 1
+  SEND_XCP=""
 elif [[ "\${res}" == *","* ]]; then
   logError "Multiple hosts found"
-  exit 1
+  SEND_XCP=""
 else
   HOST_ID=\${res}
 fi
@@ -129,18 +130,27 @@ END
 echo "\${MESSAGE}" | \${MAIL_CMD} -s "\${SUBJECT}" -r \${SENDER} \${SYSADMIN}
 if [[ \$? -ne 0 ]]; then
   logError "Failed to send SMART email"
-  exit 1
+  SEND_XCP=""
 else
   logInfo "SMART email sent succesfully"
 fi
 
 # Send warning to XCP-ng
-xe message-create name="SMART" body="\${SMARTD_MESSAGE}" priority=\$LVL_WARN host-uuid=\${HOST_ID}
-if [[ \$? -ne 0 ]]; then
-  logError "Failed to send SMART notification to XCP-ng"
+if [[ -z "\${SEND_XCP}" ]]; then
+  logWarn "Skipping XCP-ng notification"
+else
+  xe message-create name="SMART" body="\${SMARTD_MESSAGE}" priority=\$LVL_WARN host-uuid=\${HOST_ID}
+  if [[ \$? -ne 0 ]]; then
+    logError "Failed to send SMART notification to XCP-ng"
+  else
+    logInfo "SMART notification sent to XCP-ng"
+  fi
+fi
+
+if [[ -z "\${SEND_XCP}" ]]; then
   exit 1
 else
-  logInfo "SMART notification sent to XCP-ng"
+  exit 0
 fi
 
 EOF
