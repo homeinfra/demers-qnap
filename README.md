@@ -71,9 +71,11 @@ Local tasks:
 - [ ] Limit number of ssh-agent isntances created by .bashrc
 - [ ] PCI Passthrough
 - [x] XCP-ng email notifications
-- [ ] mdadm periodic scrubbing
+- [x] smartd test and monitoring alerts
+- [x] mdadm scrubbing and monitoring alerts
 - [ ] NUT UPS support
 - [ ] NetData (hardware monitoring)
+- [ ] Skeleton of a shutdown and startup script and daemon. Should hook full shutdown to USB_Copy button
 
 Remote tasks:
 - [ ] Network configuration
