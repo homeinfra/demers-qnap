@@ -7,21 +7,7 @@ startup_main() {
   logInfo "Starting up..."
   init
 
-  # Initialize HAL
-  if ! qnap_hal_init; then
-    error "Failed to start HAL daemon"
-  fi
-
-  # Register USB Copy Button to perform a total shutdown
-  if ! ${HOME_BIN}/qhal start; then
-    error "Failed to start QNAP HAL"
-  fi
-  local sh_cmd="${ST_ROOT}/src/lifecycle/shutdown.sh"
-  if ! ${HOME_BIN}/qhal button USB_Copy -- ${sh_cmd} -e all; then
-    error "Failed to register USB Copy button for full shutdown"
-  else
-    logInfo "Registered USB Copy button for full shutdown"
-  fi
+  hardware_init
 
   # Startup complete
   if ! ${HOME_BIN}/qhal beep Online; then
@@ -30,6 +16,26 @@ startup_main() {
 
   logInfo "Startup complete"
   return 0
+}
+
+hardware_init() {
+  # Initialize HAL
+  if ! qnap_hal_init; then
+    error "Failed to start HAL daemon"
+  fi
+
+  # Start HAL daemon
+  if ! ${HOME_BIN}/qhal start; then
+    error "Failed to start QNAP HAL"
+  fi
+
+  # Register USB Copy Button to perform a total shutdown
+  local sh_cmd="${ST_ROOT}/src/lifecycle/shutdown.sh"
+  if ! ${HOME_BIN}/qhal button USB_Copy -- ${sh_cmd} -e all; then
+    error "Failed to register USB Copy button for full shutdown"
+  else
+    logInfo "Registered USB Copy button for full shutdown"
+  fi
 }
 
 init() {

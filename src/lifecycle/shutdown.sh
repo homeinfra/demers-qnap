@@ -164,7 +164,7 @@ EOF
 info() {
   logInfo "$1"
 
-  xe message-create name="Startup" body="$1" priority=${LVL_INFO} host-uuid=${HOST_ID}
+  xe message-create name="Shutdown" body="$1" priority=${LVL_INFO} host-uuid=${HOST_ID}
   if [[ $? -ne 0 ]]; then
     logError "Failed to send notification to XCP-ng"
   fi
@@ -173,7 +173,7 @@ info() {
 warn() {
   logWarn "$1"
 
-  xe message-create name="Startup" body="$1" priority=${LVL_WARN} host-uuid=${HOST_ID}
+  xe message-create name="Shutdown" body="$1" priority=${LVL_WARN} host-uuid=${HOST_ID}
   if [[ $? -ne 0 ]]; then
     logError "Failed to send notification to XCP-ng"
   fi
@@ -182,7 +182,7 @@ warn() {
 error() {
   logError "$1"
 
-  xe message-create name="Startup" body="$1" priority=${LVL_ERROR} host-uuid=${HOST_ID}
+  xe message-create name="Shutdown" body="$1" priority=${LVL_ERROR} host-uuid=${HOST_ID}
   if [[ $? -ne 0 ]]; then
     logError "Failed to send notification to XCP-ng"
   fi
