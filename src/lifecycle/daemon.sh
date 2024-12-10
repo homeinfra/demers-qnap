@@ -10,10 +10,11 @@ enable_power_button() {
   local res
 
   if [[ -f "${_logind_conf}" ]]; then
-    if ! _current=$(grep "HandlePowerKey=.*" "${_logind_conf}"); then
+    if ! _current=$(grep ".*HandlePowerKey=.*" "${_logind_conf}"); then
       logError "Expected to find HandlePowerKey in ${_logind_conf}"
       return 1
     else
+      logDebug "Current line: ${_current}"
       _value="${_current#*=}"
       logInfo "Current value: ${_value}"
     fi
@@ -28,10 +29,13 @@ enable_power_button() {
     return 1
   elif [[ -n "${res}" ]]; then
     # Parse a string that should look like: 0 inhibitors listed.
-    if [[ "${res}" != "0 inhibitors listed." ]]; then
+    if [[ "${res}" == "0 inhibitors listed." ]]; then
       logInfo "No Inhibitors found"
     else
-      logError "Inhibitors found"
+      logError <<EOF
+Inhibitors found:
+${res}
+EOF
       return 1
     fi
   else 
@@ -42,9 +46,9 @@ enable_power_button() {
   # Being very careful, make sure we only edit the config in the two cases:
   # 1) It's commented out
   # 2) It's configured to ignore (Default value on XCP-ng)
-  if [[ "${_current}" =~ "^#HandlePowerKey=.*" ]]; then
+  if echo "${_current}" | grep -q "^#.*HandlePowerKey=.*"; then
     logWarn "Power button is commented out. Unexpected but supported"
-  elif [[ "${_current}" =~ "^HandlePowerKey=.*" ]]; then
+  elif echo "${_current}" | grep -q "^HandlePowerKey=.*"; then
     logError "Not commented and wrong key? Abort this unexpected result"
     return 1
   elif [[ "${_value}" == "ignore" ]]; then
@@ -66,15 +70,19 @@ enable_power_button() {
   fi
 
   # Replace the line
-  if ! sed -i 's/HandlePowerKey=.*$/HandlePowerKey=poweroff/' "${_logind_conf}"; then
+  if ! sed -i 's/^.*HandlePowerKey=.*$/HandlePowerKey=poweroff/' "${_logind_conf}"; then
     logError "Failed to replace the line"
     return 1
+  else
+    logInfo "Power button configured to poweroff"
   fi
 
   # Restart logind service
   if ! systemctl restart systemd-logind; then
     logError "Failed to restart logind"
     return 1
+  else
+    logInfo "logind restarted"
   fi
 
   return 0
