@@ -73,12 +73,12 @@ Local tasks:
 - [x] XCP-ng email notifications
 - [x] smartd test and monitoring alerts
 - [x] mdadm scrubbing and monitoring alerts
-- [ ] Re-enable ACPI power button: https://abnml.com/blog/2024/11/26/replacing-proxmox-with-freebsd-and-bhyve/
+- [x] Re-enable ACPI power button
 - [ ] NUT UPS support
 - [ ] NetData (hardware monitoring)
 - [ ] Local ISO storage
 - [ ] Local VM storage
-- [ ] Skeleton of a shutdown and startup script and daemon. Should hook full shutdown to USB_Copy button
+- [x] Skeleton of a shutdown and startup script and daemon. Should hook full shutdown to USB_Copy button
 
 Horizon tasks:
 - [ ] Network configuration

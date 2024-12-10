@@ -19,14 +19,12 @@ shutdown_main() {
       logError "Failed to buzz indicating local shutdown"
     fi
     shutdown_local
-    return $?
   elif [[ "${SH_CMD}" == "all" ]]; then
     info "Shutting down all"
     if ! ${HOME_BIN}/qhal beep Outage; then
       logError "Failed to buzz indicating all shutdown"
     fi
     shutdown_all
-    return $?
   else
     error "Unknown shutdown command: ${SH_CMD}. Perfoming a local shudown only"
     SH_CMD="local"
@@ -37,17 +35,15 @@ shutdown_main() {
 
 shutdown_local() {
   notify_wait_sol
-  return 0
 }
 
 shutdown_all() {
   notify_wait_sol
-  return 0
 }
 
 notify_wait_sol() {
   # Notify SOL we are going down, wait for the OK
-  return 0
+  : # TODO
 }
 
 init() {
@@ -66,7 +62,7 @@ init() {
   fi
 
   # Load configuration
-  if ! config_load "${ST_ROOT}/data/install.env"; then
+  if ! config_load "${SH_ROOT}/data/install.env"; then
     logError "Failed to load install configuration"
   fi
   if ! config_load "${CONFIG_DIR}/email.env"; then
@@ -132,6 +128,7 @@ SH_ROOT=$(realpath "${SH_ROOT}/../..")
 # Import dependencies
 SETUP_REPO_DIR="${SH_ROOT}/external/setup"
 source ${SETUP_REPO_DIR}/src/slf4sh.sh
+source ${SETUP_REPO_DIR}/src/config.sh
 
 if [[ -p /dev/stdin ]] && [[ -z ${BASH_SOURCE[0]} ]]; then
   # This script was piped

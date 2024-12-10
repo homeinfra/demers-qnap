@@ -15,6 +15,7 @@ import daemon
 import signal
 import logging
 from portio import ioperm, inb, outb
+from dotenv import load_dotenv
 
 # Define some values for the supported HAL features
 IO = namedtuple('IO', ['name', 'port', 'bit'])
@@ -242,7 +243,7 @@ class ButtonHandler(IOHandler):
           if state == 1:
             self._log.info(f'Button {button.name} was pressed while in test mode')
             # Do a beep
-            res = Popen(['qhal', 'beep', 'Beep'], stdout=PIPE, stderr=PIPE)
+            res = Popen([f"{os.environ['HOME_BIN']}/qhal", 'beep', 'Beep'], stdout=PIPE, stderr=PIPE)
             res.communicate()
             if res.returncode:
               self._log.error(f'Beep failed with return code: {res.returncode}. Stderr: {res.stderr}. Stdout: {res.stdout}. Stdout: {res.stdout}')
@@ -456,7 +457,7 @@ class QhalClient:
     # Arguments
     sound = next((s for s in sounds if s.name == arg), None)
     
-    res = Popen(['qnap_hal', 'hal_app', '--se_buzzer', f"enc_id=0,mode={sound.id}"], stdout=PIPE, stderr=PIPE)
+    res = Popen([f"{os.environ['HOME_BIN']}/qnap_hal", 'hal_app', '--se_buzzer', f"enc_id=0,mode={sound.id}"], stdout=PIPE, stderr=PIPE)
     res.communicate()
     if res.returncode:
       self.__log.error(f"Failed to play sound: {sound.name}. Return Code: {res.returncode}. Stderr: {res.stderr}. Stdout: {res.stdout}")
@@ -539,7 +540,22 @@ def status_daemon(logger):
   else:
     print("Daemon is not running")
 
-def main():
+def load_config():
+  """Load project configuration."""
+  filename=f"{ROOT}/data/install.env"
+  load_dotenv(filename, override=True)
+
+  # all_config_files = os.environ['LOCAL_CONFIG']
+  # for cfile in re.finditer(r'[^:]+', all_config_files):
+  #   filename=f"{ROOT}/{cfile.group(0)}"
+  #   logging.info("Loading configuration from: %s", filename)
+  #   with tempfile.NamedTemporaryFile() as file:
+  #     subprocess.run(["sops", "--decrypt", filename], stdout=file, check=True)
+  #     load_dotenv(file.name, override=True)
+
+
+def main():  
+  load_config()
   logger = LoggerConfig().get_logger()
   try:
     logger.info('== %s Started ==', Path(__file__).name)
@@ -673,7 +689,7 @@ class LoggerConfig:
           self.__logger.addHandler(self.__console)
 
 # Get ROOT
-ROOT = os.path.realpath(os.path.dirname(os.path.abspath(__file__)) + "/..")
+ROOT = os.path.realpath(os.path.dirname(os.path.realpath(os.path.abspath(__file__))) + "/../..")
 
 if __name__ == "__main__":
   main()

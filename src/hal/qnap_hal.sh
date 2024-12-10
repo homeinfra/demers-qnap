@@ -36,7 +36,7 @@ qnap_hal_dependencies() {
     return 1
   fi
 
-  if ! pip_install "python-daemon==2.3.2" "portio==0.6.2"; then
+  if ! pip_install "python-daemon==2.3.2" "portio==0.6.2" python-dotenv==0.20.0; then
     logError "Failed to install required python modules"
     return 1
   fi

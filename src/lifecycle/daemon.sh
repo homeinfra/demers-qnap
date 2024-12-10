@@ -48,7 +48,7 @@ EOF
   # 2) It's configured to ignore (Default value on XCP-ng)
   if echo "${_current}" | grep -q "^#.*HandlePowerKey=.*"; then
     logWarn "Power button is commented out. Unexpected but supported"
-  elif echo "${_current}" | grep -q "^HandlePowerKey=.*"; then
+  elif ! echo "${_current}" | grep -q "^HandlePowerKey=.*"; then
     logError "Not commented and wrong key? Abort this unexpected result"
     return 1
   elif [[ "${_value}" == "ignore" ]]; then

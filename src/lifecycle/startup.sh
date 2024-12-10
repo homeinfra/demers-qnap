@@ -7,8 +7,8 @@ startup_main() {
   logInfo "Starting up..."
   init
 
-  # Start HAL deamon
-  if ! ${HOME_BIN}/qnap_hal local hal_daemon -f; then
+  # Initialize HAL
+  if ! qnap_hal_init; then
     error "Failed to start HAL daemon"
   fi
 
@@ -106,6 +106,7 @@ ST_ROOT=$(realpath "${ST_ROOT}/../..")
 SETUP_REPO_DIR="${ST_ROOT}/external/setup"
 source ${SETUP_REPO_DIR}/src/slf4sh.sh
 source ${SETUP_REPO_DIR}/src/config.sh
+source ${ST_ROOT}/src/hal/qnap_hal.sh
 
 if [[ -p /dev/stdin ]] && [[ -z ${BASH_SOURCE[0]} ]]; then
   # This script was piped
