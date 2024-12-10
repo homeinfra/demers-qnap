@@ -122,6 +122,17 @@ local_xcp_config() {
     return 1
   fi
 
+  # Configure the lifecycle daemon
+  if ! deamon_configure; then
+    logError "Failed to configure the lifecycle daemon"
+    return 1
+  fi
+
+  if ! enable_power_button; then
+    logError "Failed to enable power button"
+    return 1
+  fi
+
   return 0
 }
 
@@ -185,6 +196,7 @@ source ${DQ_ROOT}/src/hal/qnap_hal.sh
 source ${DQ_ROOT}/src/email/email.sh
 source ${DQ_ROOT}/src/raid/mdadm.sh
 source ${DQ_ROOT}/src/raid/smartd.sh
+source ${DQ_ROOT}/src/lifecycle/daemon.sh
 
 if [[ -p /dev/stdin ]] && [[ -z ${BASH_SOURCE[0]} ]]; then
   # This script was piped

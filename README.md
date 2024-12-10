@@ -73,7 +73,7 @@ Local tasks:
 - [x] XCP-ng email notifications
 - [x] smartd test and monitoring alerts
 - [x] mdadm scrubbing and monitoring alerts
-- [x] Re-enable ACPI power button: https://abnml.com/blog/2024/11/26/replacing-proxmox-with-freebsd-and-bhyve/
+- [ ] Re-enable ACPI power button: https://abnml.com/blog/2024/11/26/replacing-proxmox-with-freebsd-and-bhyve/
 - [ ] NUT UPS support
 - [ ] NetData (hardware monitoring)
 - [ ] Local ISO storage

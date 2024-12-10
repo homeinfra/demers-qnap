@@ -1,0 +1,14 @@
+[Unit]
+Description=Start/Stop other services after bootup/before shutdown
+Requires=xapi-wait-init-complete.service
+After=xapi-domains.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=@STARTUP_CMD@
+ExecStop=@SHUTDOWN_CMD@
+TimeoutStopSec=86400
+
+[Install]
+WantedBy=multi-user.target
