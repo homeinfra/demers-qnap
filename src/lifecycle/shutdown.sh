@@ -8,7 +8,7 @@ shutdown_main() {
   init
 
   if [[ -f "${SHUTDOWN_CMD_FILE}" ]]; then
-    source "${SHUTDOWN_CMD_FILE}"
+    SH_CMD=$(cat ${SHUTDOWN_CMD_FILE})
   else
     SH_CMD="local"
     warn "No shutdown command found. Assuming: ${SH_CMD}"
@@ -73,8 +73,8 @@ init() {
 }
 
 sh_parse() {
-  local short="h"
-  local long="help"
+  local short="he"
+  local long="help,execute"
 
   local opts
   opts=$(getopt --options ${short} --long ${long} --name "${SH_ME}" -- "$SH_ARGS")
@@ -83,12 +83,19 @@ sh_parse() {
     exit 1
   fi
 
+  local cmd
+  local opt
+
   eval set -- "${opts}"
   while true; do
     case "$1" in
       -h|--help)
         sh_print_usage
         exit 0
+        ;;
+      -e|--execute)
+        opt="-e"
+        shift
         ;;
       --)
         shift
@@ -102,11 +109,9 @@ sh_parse() {
   done
 
   # Handle positional arguments
-  local cmd
   while [[ $# -gt 0 ]]; do
     case "$1" in
       all)
-        echo ${SHUTDOWN_ALL} > ${SHUTDOWN_CMD_FILE}
         cmd=${SHUTDOWN_ALL}
         shift
         ;;
@@ -118,7 +123,18 @@ sh_parse() {
   done
 
   if [[ "${cmd}" == "${SHUTDOWN_ALL}" ]]; then
+    echo ${SHUTDOWN_ALL} > ${SHUTDOWN_CMD_FILE}
     logInfo "Marked all systems for shutdown"
+    if [[ "${opt}" == "-e" ]]; then
+      shutdowwn -h now &
+      if [[ $? -ne 0 ]]; then
+        error "Failed to trigger shutdown"
+      else
+        logInfo "Shutdown triggered"
+      fi
+    else
+      logInfo "No shutdown triggered."
+    fi
     exit 0
   fi
 }
@@ -130,7 +146,8 @@ Shutdown the system
 Usage: ${SH_ME} [OPTION] [all]
 
 Options:
-  -h, --help  Display this help and exit
+  -h, --help    Display this help and exit
+  -e, --execute Trigger the shutdown as well as marking all systems for shutdown
 Arguments:
   all         Mark all systems for shutdown
 EOF
