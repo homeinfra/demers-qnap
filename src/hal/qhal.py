@@ -262,7 +262,7 @@ class ButtonHandler(IOHandler):
                 if self.__commands[button] is not None:
                   res = Popen(self.__commands[button], stdout=PIPE, stderr=PIPE)
                   res.communicate()
-                  self._log.info(f'Command [{self.__commands[button]}] executed with result: {res.returncode}')
+                  self._log.info(f'Command {self.__commands[button]} executed with result: {res.returncode}')
                   if res.returncode:
                     self._log.error(f'Command failed with return code: {res.returncode}. Stderr: {res.stderr}. Stdout: {res.stdout}. Stdout: {res.stdout}')
                 else:

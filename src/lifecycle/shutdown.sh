@@ -9,6 +9,7 @@ shutdown_main() {
 
   if [[ -f "${SHUTDOWN_CMD_FILE}" ]]; then
     SH_CMD=$(cat ${SHUTDOWN_CMD_FILE})
+    rm -f ${SHUTDOWN_CMD_FILE}
   else
     SH_CMD="local"
     warn "No shutdown command found. Assuming: ${SH_CMD}"
@@ -77,7 +78,7 @@ sh_parse() {
   local long="help,execute"
 
   local opts
-  opts=$(getopt --options ${short} --long ${long} --name "${SH_ME}" -- "$SH_ARGS")
+  opts=$(getopt --options ${short} --long ${long} --name "${SH_ME}" -- "${SH_ARGS[@]}")
   if [[ $? -ne 0 ]]; then
     error "Failed to parse arguments"
     exit 1
@@ -126,7 +127,7 @@ sh_parse() {
     echo ${SHUTDOWN_ALL} > ${SHUTDOWN_CMD_FILE}
     logInfo "Marked all systems for shutdown"
     if [[ "${opt}" == "-e" ]]; then
-      shutdowwn -h now &
+      shutdown -h now &
       if [[ $? -ne 0 ]]; then
         error "Failed to trigger shutdown"
       else
