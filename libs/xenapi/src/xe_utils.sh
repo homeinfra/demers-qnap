@@ -92,7 +92,8 @@ XE_ROOT=$(cd -P "$(dirname "${XE_SOURCE}")" >/dev/null 2>&1 && pwd)
 XE_ROOT=$(realpath "${XE_ROOT}/..")
 
 # Import dependencies
-source ${XE_ROOT}/../../external/setup/src/slf4sh.sh
+SETUP_REPO_DIR="${XE_ROOT}/../../external/setup"
+source ${SETUP_REPO_DIR}/src/slf4sh.sh
 
 if [[ -p /dev/stdin ]] && [[ -z ${BASH_SOURCE[0]} ]]; then
   # This script was piped

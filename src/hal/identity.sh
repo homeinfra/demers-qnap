@@ -196,7 +196,8 @@ ID_ROOT=$(cd -P "$(dirname "${ID_SOURCE}")" >/dev/null 2>&1 && pwd)
 ID_ROOT=$(realpath "${ID_ROOT}/../..")
 
 # Import dependencies
-source ${ID_ROOT}/external/setup/src/slf4sh.sh
+SETUP_REPO_DIR="${ID_ROOT}/external/setup"
+source ${SETUP_REPO_DIR}/src/slf4sh.sh
 
 if [[ -p /dev/stdin ]] && [[ -z ${BASH_SOURCE[0]} ]]; then
   # This script was piped

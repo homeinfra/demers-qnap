@@ -16,8 +16,17 @@
 SD_SMARTD_CONF="DEVICESCAN -a -n sleep,4,q -s (S/../.././22|L/../01/./00)"
 
 sd_configure() {
+  if [[ -z "${BIN_DIR}" ]]; then
+    logError "BIN_DIR is not set"
+    return 1
+  fi
+  if [[ -z "${CONFIG_DIR}" ]]; then
+    logError "CONFIG_DIR is not set"
+    return 1
+  fi
+
   # Load email configuration
-  local cfg_email="${SD_ROOT}/bin/.config/email.env"
+  local cfg_email="${CONFIG_DIR}/email.env"
   if ! config_load "${cfg_email}"; then
     logError "Failed to load email configuration"
     return 1
@@ -34,7 +43,7 @@ sd_configure() {
 
 # Import email configuration
 source "${cfg_email}"
-source "${SD_ROOT}/external/setup/src/slf4sh.sh"
+source "${SETUP_REPO_DIR}/src/slf4sh.sh"
 
 SEND_XCP="true"
 if ! command -v xe &>/dev/null; then
@@ -156,9 +165,8 @@ fi
 EOF
 )
 
-  local bin_dir="${SD_ROOT}/bin"
   # There's a bug if the filename contains a dot: https://askubuntu.com/a/1058433
-  local smart_file="${bin_dir}/smartd_event"
+  local smart_file="${BIN_DIR}/smartd_event"
   logInfo "Installing SMART event script"
   echo "${file}" > "${smart_file}"
   if [[ $? -ne 0 ]]; then
@@ -275,8 +283,9 @@ SD_ROOT=$(cd -P "$(dirname "${SD_SOURCE}")" >/dev/null 2>&1 && pwd)
 SD_ROOT=$(realpath "${SD_ROOT}/../..")
 
 # Import dependencies
-source ${SD_ROOT}/external/setup/src/slf4sh.sh
-source ${SD_ROOT}/external/setup/src/config.sh
+SETUP_REPO_DIR="${SD_ROOT}/external/setup"
+source ${SETUP_REPO_DIR}/src/slf4sh.sh
+source ${SETUP_REPO_DIR}/src/config.sh
 
 if [[ -p /dev/stdin ]] && [[ -z ${BASH_SOURCE[0]} ]]; then
   # This script was piped

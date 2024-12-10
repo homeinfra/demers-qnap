@@ -123,11 +123,14 @@ xh_is_pool_masater() {
 xh_configure_email() {
   local _config="$1"
 
+  if [[ -z "${BIN_DIR}" ]]; then
+    logError "BIN_DIR is not set"
+    return 1
+  fi
   if ! xh_is_pool_masater; then
     logError "Host is not the pool master. Do not configure email"
     return 0
   fi
-
   if [[ -f "${_config}" ]]; then
     logInfo "Mail configuration found"
     if ! config_load "${_config}"; then
@@ -189,6 +192,62 @@ xh_configure_email() {
     fi
   fi
 
+   # Install the XCP-ng notification test script
+  file=$(cat <<EOF
+#!/usr/bin/env bash
+# SPDX-License-Identifier: MIT
+#
+# Test XCP-ng notifications
+# (This file was automatically generated during installation)
+
+source ${SETUP_REPO_DIR}/src/slf4sh.sh
+
+if ! command -v xe &>/dev/null; then
+  logError "XCP-ng not detected"
+  exit 1
+fi
+
+# XCP-ng message levels
+LVL_ERROR=1
+LVL_WARN=2
+LVL_INFO=3
+LVL_DEBUG=4
+LVL_TRACE=5
+
+if ! res=\$(xe host-list name-label=\$(hostname) --minimal); then
+  logError "Failed to get host"
+  exit 1
+elif [[ -z "\${res}" ]]; then
+  logError "Host not found"
+  exit 1
+elif [[ "\${res}" == *","* ]]; then
+  logError "Multiple hosts found"
+  exit 1
+else
+  HOST_ID=\${res}
+fi
+
+xe message-create name="Test" body="This is a test notification" priority=\${LVL_INFO} host-uuid=\${HOST_ID}
+if [[ \$? -ne 0 ]]; then
+  logError "Failed to send notification to XCP-ng"
+  exit 1
+else
+  logInfo "Test notification sent succesfully"
+fi
+
+EOF
+  )
+
+  logInfo "Installing notification test script"
+  echo "${file}" > "${BIN_DIR}/notification_test.sh"
+  if [[ $? -ne 0 ]]; then
+    logWarn "Failed to install notification test script"
+  fi
+  chmod +x "${BIN_DIR}/notification_test.sh"
+  if [[ $? -ne 0 ]]; then
+    logWarn "Failed to make notification test script executable"
+  fi
+
   return 0
 }
 
@@ -212,8 +271,9 @@ XH_ROOT=$(cd -P "$(dirname "${XH_SOURCE}")" >/dev/null 2>&1 && pwd)
 XH_ROOT=$(realpath "${XH_ROOT}/..")
 
 # Import dependencies
-source ${XH_ROOT}/../../external/setup/src/slf4sh.sh
-source ${XH_ROOT}/../../external/setup/src/config.sh
+SETUP_REPO_DIR="${XH_ROOT}/../../external/setup"
+source ${SETUP_REPO_DIR}/src/slf4sh.sh
+source ${SETUP_REPO_DIR}/src/config.sh
 
 if [[ -p /dev/stdin ]] && [[ -z ${BASH_SOURCE[0]} ]]; then
   # This script was piped

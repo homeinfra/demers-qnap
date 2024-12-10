@@ -89,7 +89,8 @@ XN_ROOT=$(cd -P "$(dirname "${XN_SOURCE}")" >/dev/null 2>&1 && pwd)
 XN_ROOT=$(realpath "${XN_ROOT}/..")
 
 # Import dependencies
-source ${XN_ROOT}/../../external/setup/src/slf4sh.sh
+SETUP_REPO_DIR="${XN_ROOT}/../../external/setup"
+source ${SETUP_REPO_DIR}/src/slf4sh.sh
 source ${XN_ROOT}/src/xe_host.sh
 source ${XN_ROOT}/src/xe_utils.sh
 

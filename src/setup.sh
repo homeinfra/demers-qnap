@@ -8,6 +8,13 @@
 AGE_KEY="homeinfra_demers"
 
 setup() {
+  # Load install configuration
+  local install_cfg="${DQ_ROOT}/data/install.env"
+  if ! config_load "${install_cfg}"; then
+    logError "Failed to load install configuration"
+    return 1
+  fi
+
   # Make sure git is installed and configured
   if ! git_install; then
     logInfo "Failed to install git"
@@ -137,14 +144,16 @@ DQ_ROOT=$(cd -P "$(dirname "${DQ_SOURCE}")" >/dev/null 2>&1 && pwd)
 DQ_ROOT=$(realpath "${DQ_ROOT}/..")
 
 # Import dependencies
-source ${DQ_ROOT}/external/setup/src/slf4sh.sh
-source ${DQ_ROOT}/external/setup/src/git.sh
-source ${DQ_ROOT}/external/setup/src/sops.sh
-source ${DQ_ROOT}/external/setup/src/age.sh
-source ${DQ_ROOT}/external/setup/src/config.sh
+SETUP_REPO_DIR="${DQ_ROOT}/external/setup"
+XE_LIB_DIR="${DQ_ROOT}/libs/xenapi"
+source ${SETUP_REPO_DIR}/src/slf4sh.sh
+source ${SETUP_REPO_DIR}/src/git.sh
+source ${SETUP_REPO_DIR}/src/sops.sh
+source ${SETUP_REPO_DIR}/src/age.sh
+source ${SETUP_REPO_DIR}/src/config.sh
+source ${XE_LIB_DIR}/src/xe_network.sh
 source ${DQ_ROOT}/src/hal/identity.sh
 source ${DQ_ROOT}/src/aq113c/aq113c.sh
-source ${DQ_ROOT}/libs/xenapi/src/xe_network.sh
 source ${DQ_ROOT}/src/hal/sensors.sh
 source ${DQ_ROOT}/src/hal/qnap_hal.sh
 

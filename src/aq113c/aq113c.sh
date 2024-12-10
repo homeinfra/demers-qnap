@@ -71,20 +71,22 @@ aq113c_install() {
 aq113c_download() {
   local _path="$1"
   local archive="$(basename ${AQ_URL})"
-  local bin_dir
   local location
   local workspace
-  if git_find_root location "${AQ_ROOT}"; then
-    bin_dir="${location}/bin"
-    location="${bin_dir}/downloads/${archive}"
-  else
-    logError "Failed to find the root of the repository"
+
+  if [[ -z "${BIN_DIR}"]]; then
+    logError "BIN_DIR is not set"
     return 1
   fi
+  if [[ -z "${DOWNLOAD_DIR}"]]; then
+    logError "DOWNLOAD_DIR is not set"
+    return 1
+  fi
+  location="${DOWNLOAD_DIR}/${archive}"
 
   # Check if we already have the driver
-  if [[ -d "${bin_dir}" ]]; then
-    workspace=$(find "${bin_dir}" -maxdepth 1 -type d -regex ".*Marvell.*${AQ_VERSION}.*")
+  if [[ -d "${BIN_DIR}" ]]; then
+    workspace=$(find "${BIN_DIR}" -maxdepth 1 -type d -regex ".*Marvell.*${AQ_VERSION}.*")
     if [[ -n "${workspace}" ]]; then
       logInfo "Found existing workspace: ${workspace}"
       eval "$_path='${workspace}'"
@@ -111,13 +113,13 @@ aq113c_download() {
     fi
   fi
   # Unzip the driver
-  if ! unzip -q -o "${location}" -d "${bin_dir}"; then
+  if ! unzip -q -o "${location}" -d "${BIN_DIR}"; then
     logError "Failed to extract AQ113C driver"
     return 1
   fi
 
   # Look in the extracted location
-  workspace=$(find "${bin_dir}" -maxdepth 1 -type d -regex ".*Marvell.*${AQ_VERSION}.*")
+  workspace=$(find "${BIN_DIR}" -maxdepth 1 -type d -regex ".*Marvell.*${AQ_VERSION}.*")
   if [[ -n "${workspace}" ]]; then
     workspace="${workspace}"
     logInfo "Found existing workspace: ${workspace}"
@@ -152,9 +154,10 @@ AQ_ROOT=$(cd -P "$(dirname "${AQ_SOURCE}")" >/dev/null 2>&1 && pwd)
 AQ_ROOT=$(realpath "${AQ_ROOT}/../..")
 
 # Import dependencies
-source ${AQ_ROOT}/external/setup/src/slf4sh.sh
-source ${AQ_ROOT}/external/setup/src/git.sh
-source ${AQ_ROOT}/external/setup/src/pkg.sh
+SETUP_REPO_DIR="${AQ_ROOT}/external/setup"
+source ${SETUP_REPO_DIR}/src/slf4sh.sh
+source ${SETUP_REPO_DIR}/src/git.sh
+source ${SETUP_REPO_DIR}/src/pkg.sh
 
 if [[ -p /dev/stdin ]] && [[ -z ${BASH_SOURCE[0]} ]]; then
   # This script was piped

@@ -40,26 +40,26 @@ qnap_hal_dependencies() {
     logError "Failed to install required python modules"
     return 1
   fi
+
+  if [[ -z "${BIN_DIR}" ]]; then
+    logError "BIN_DIR is not set"
+    return 1
+  fi
 }
 
 qnap_hal_install() {
-  
   if ! qnap_hal_dependencies; then
     logError "Failed to install dependencies"
     return 1
   fi
-
-  local install_root
-  local installer
 
   if [[ -z "${QN_ID}" ]]; then
     logError "QN_ID is not set"
     return 1
   fi
 
-  bin_dir="${QN_ROOT}/bin"
-  install_root="${bin_dir}/hal"
-  installer="${QN_ROOT}/data/hal_${QN_ID}.tar.gz"
+  local install_root="${BIN_DIR}/hal"
+  local installer="${QN_ROOT}/data/hal_${QN_ID}.tar.gz"
 
   if [[ ! -d "${install_root}" ]] || [[ -z "$( ls -A "${install_root}" )" ]] ; then
     logTrace "Installing HAL for ${QN_ID}"
@@ -82,30 +82,28 @@ qnap_hal_install() {
     logInfo "HAL for ${QN_ID} is already installed"
   fi
 
-  qnap_hal_init
-
-  # Add out bin directory to the PATH
-  if ! env_config "PATH=\${PATH}:${bin_dir}"; then
-    logError "Failed to add ${bin_dir} to the PATH"
-    return 1
+  local res
+  if ! qnap_hal_init; then
+    logError "Failed to initialize HAL"
+    res=1
   fi
 
   # Install symbolic links for qnap_hal.sh and qhal.py
-  if ! ln -sf "${QN_ROOT}/src/hal/qnap_hal.sh" "${bin_dir}/qnap_hal"; then
+  if ! ln -sf "${QN_ROOT}/src/hal/qnap_hal.sh" "${HOME}/bin/qnap_hal"; then
     logError "Failed to create symbolic link for qnap_hal.sh"
     return 1
   fi
-  if ! ln -sf "${QN_ROOT}/src/hal/qhal.py" "${bin_dir}/qhal"; then
+  if ! ln -sf "${QN_ROOT}/src/hal/qhal.py" "${HOME}/bin/qhal"; then
     logError "Failed to create symbolic link for qhal.py"
     return 1
   fi
 
-  return $?
+  return $res
 }
 
 qnap_hal_init() {
   local ret_value=0
-  local install_root="${QN_ROOT}/bin/hal"
+  local install_root="${BIN_DIR}/hal"
   local cmd=("hal_daemon" "-f")
 
   umount "${install_root}/tmp" >/dev/null 2>&1
@@ -178,7 +176,12 @@ qnap_hal_init() {
 # Parameters:
 #   $@: The command to call
 qnap_hal_invoke() {
-  local install_root="${QN_ROOT}/bin/hal"
+  if ! config_load "${QN_ROOT}/data/install.env"; then
+    logError "Failed to load configuration"
+    return 1
+  fi
+
+  local install_root="${BIN_DIR}/hal"
   local res
 
   logTrace "Executing on the QNAP HAL: $@"
@@ -209,10 +212,11 @@ QN_ROOT=$(cd -P "$(dirname "${QN_SOURCE}")" >/dev/null 2>&1 && pwd)
 QN_ROOT=$(realpath "${QN_ROOT}/../..")
 
 # Import dependencies
-source ${QN_ROOT}/external/setup/src/slf4sh.sh
-source ${QN_ROOT}/external/setup/src/env.sh
-source ${QN_ROOT}/external/setup/src/pkg.sh
-source ${QN_ROOT}/external/setup/src/python.sh
+SETUP_REPO_DIR="${QN_ROOT}/external/setup"
+source ${SETUP_REPO_DIR}/src/slf4sh.sh
+source ${SETUP_REPO_DIR}/src/env.sh
+source ${SETUP_REPO_DIR}/src/pkg.sh
+source ${SETUP_REPO_DIR}/src/python.sh
 
 if [[ -p /dev/stdin ]] && [[ -z ${BASH_SOURCE[0]} ]]; then
   # This script was piped

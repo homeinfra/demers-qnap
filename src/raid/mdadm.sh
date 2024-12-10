@@ -4,14 +4,23 @@
 # This script configures periodic RAID scrubbing and monitoring
 
 md_configure() {
+  if [[ -z "${BIN_DIR}" ]]; then
+    logError "BIN_DIR is not set"
+    return 1
+  fi
+  if [[ -z "${CONFIG_DIR}" ]]; then
+    logError "CONFIG_DIR is not set"
+    return 1
+  fi
+
   # Load email configuration
-  local cfg_email="${MD_ROOT}/bin/.config/email.env"
+  local cfg_email="${CONFIG_DIR}/email.env"
   if ! config_load "${cfg_email}"; then
     logError "Failed to load email configuration"
     return 1
   fi
 
-  # Script to execute on SMART events
+  # Script to execute on MDADM events
   local file
   file=$(cat <<EOF
 #!/usr/bin/env bash
@@ -26,7 +35,7 @@ MDADM_ARRAY="\${3}"
 
 # Import email configuration
 source "${cfg_email}"
-source "${MD_ROOT}/external/setup/src/slf4sh.sh"
+source "${SETUP_REPO_DIR}/src/slf4sh.sh"
 
 SEND_XCP="true"
 if ! command -v xe &>/dev/null; then
@@ -137,8 +146,7 @@ fi
 EOF
   )
 
-  local bin_dir="${MD_ROOT}/bin"
-  local mdadm_file="${bin_dir}/mdadm_event"
+  local mdadm_file="${BIN_DIR}/mdadm_event"
   logInfo "Installing mdadm event script"
   echo "${file}" > "${mdadm_file}"
   if [[ $? -ne 0 ]]; then
@@ -209,9 +217,10 @@ MD_ROOT=$(cd -P "$(dirname "${MD_SOURCE}")" >/dev/null 2>&1 && pwd)
 MD_ROOT=$(realpath "${MD_ROOT}/../..")
 
 # Import dependencies
-source ${MD_ROOT}/external/setup/src/slf4sh.sh
-source ${MD_ROOT}/external/setup/src/os.sh
-source ${MD_ROOT}/external/setup/src/config.sh
+SETUP_REPO_DIR="${MD_ROOT}/external/setup"
+source ${SETUP_REPO_DIR}/src/slf4sh.sh
+source ${SETUP_REPO_DIR}/src/os.sh
+source ${SETUP_REPO_DIR}/src/config.sh
 
 if [[ -p /dev/stdin ]] && [[ -z ${BASH_SOURCE[0]} ]]; then
   # This script was piped

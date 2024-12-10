@@ -74,8 +74,9 @@ SE_ROOT=$(cd -P "$(dirname "${SE_SOURCE}")" >/dev/null 2>&1 && pwd)
 SE_ROOT=$(realpath "${SE_ROOT}/../..")
 
 # Import dependencies
-source ${SE_ROOT}/external/setup/src/slf4sh.sh
-source ${SE_ROOT}/external/setup/src/pkg.sh
+SETUP_REPO_DIR="${SE_ROOT}/external/setup"
+source ${SETUP_REPO_DIR}/src/slf4sh.sh
+source ${SETUP_REPO_DIR}/src/pkg.sh
 
 if [[ -p /dev/stdin ]] && [[ -z ${BASH_SOURCE[0]} ]]; then
   # This script was piped
