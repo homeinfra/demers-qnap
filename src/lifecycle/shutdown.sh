@@ -7,20 +7,22 @@ shutdown_main() {
   logInfo "Shutting down..."
   init
 
+  # If we reach here, the system really is going down
+
   if [[ -f "${SHUTDOWN_CMD_FILE}" ]]; then
     SH_CMD=$(cat ${SHUTDOWN_CMD_FILE})
     rm -f ${SHUTDOWN_CMD_FILE}
   else
-    SH_CMD="local"
+    SH_CMD="${SHUTDOWN_LOCAL}"
     warn "No shutdown command found. Assuming: ${SH_CMD}"
   fi
-  if [[ "${SH_CMD}" == "local" ]]; then
+  if [[ "${SH_CMD}" == "${SHUTDOWN_LOCAL}" ]]; then
     info "Shutting down locally"
     if ! ${HOME_BIN}/qhal beep Error; then
       logError "Failed to buzz indicating local shutdown"
     fi
     shutdown_local
-  elif [[ "${SH_CMD}" == "all" ]]; then
+  elif [[ "${SH_CMD}" == "${SHUTDOWN_ALL}" ]]; then
     info "Shutting down all"
     if ! ${HOME_BIN}/qhal beep Outage; then
       logError "Failed to buzz indicating all shutdown"
@@ -28,7 +30,7 @@ shutdown_main() {
     shutdown_all
   else
     error "Unknown shutdown command: ${SH_CMD}. Perfoming a local shudown only"
-    SH_CMD="local"
+    shutdown_local
   fi
 
   logInfo "Shutdown complete. Letting the OS handle the rest"
@@ -112,8 +114,8 @@ sh_parse() {
   # Handle positional arguments
   while [[ $# -gt 0 ]]; do
     case "$1" in
-      all)
-        cmd=${SHUTDOWN_ALL}
+      all|local)
+        cmd=${1}
         shift
         ;;
       *)
@@ -123,19 +125,23 @@ sh_parse() {
     esac
   done
 
-  if [[ "${cmd}" == "${SHUTDOWN_ALL}" ]]; then
+  if [[ -n "${cmd}" ]]; then
+    logInfo "Mark system ${cmd} for shutdown"
     echo ${SHUTDOWN_ALL} > ${SHUTDOWN_CMD_FILE}
-    logInfo "Marked all systems for shutdown"
-    if [[ "${opt}" == "-e" ]]; then
-      shutdown -h now &
-      if [[ $? -ne 0 ]]; then
-        error "Failed to trigger shutdown"
+    if [[ "${cmd}" == "${SHUTDOWN_ALL}" ]]; then
+      if [[ "${opt}" == "-e" ]]; then
+        logInfo "Trigger the shutdown"
+        shutdown -h now &
+        if [[ $? -ne 0 ]]; then
+          error "Failed to trigger shutdown"
+        else
+          logInfo "Shutdown triggered"
+        fi
       else
-        logInfo "Shutdown triggered"
+        logInfo "No shutdown triggered."
       fi
-    else
-      logInfo "No shutdown triggered."
     fi
+    # If we were doing some marking, don't process further
     exit 0
   fi
 }
@@ -144,13 +150,14 @@ sh_print_usage() {
   cat <<EOF
 Shutdown the system
 
-Usage: ${SH_ME} [OPTION] [all]
+Usage: ${SH_ME} [OPTION] [{all,local}]
 
 Options:
   -h, --help    Display this help and exit
   -e, --execute Trigger the shutdown as well as marking all systems for shutdown
 Arguments:
   all         Mark all systems for shutdown
+  local       Mark only this system for shutdown
 EOF
 }
 
