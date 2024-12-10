@@ -13,7 +13,15 @@ startup_main() {
   fi
 
   # Register USB Copy Button to perform a total shutdown
-  # TODO
+  if ! ${HOME_BIN}/qhal start; then
+    error "Failed to start QNAP HAL"
+  fi
+  local sh_cmd="${ST_ROOT}/src/lifecycle/shutdown.sh"
+  if ! ${HOME_BIN}/qhal button USB_Copy -- ${sh_cmd} all "&&" ${sh_cmd}; then
+    error "Failed to register USB Copy button for full shutdown"
+  else
+    logInfo "Registered USB Copy button for full shutdown"
+  fi
 
   # Startup complete
   if ! ${HOME_BIN}/qhal beep Online; then

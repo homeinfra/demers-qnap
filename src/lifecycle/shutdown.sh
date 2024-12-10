@@ -68,6 +68,72 @@ init() {
   if ! config_load "${CONFIG_DIR}/email.env"; then
     logError "Failed to load QNAP configuration"
   fi
+
+  sh_parse
+}
+
+sh_parse() {
+  local short="h"
+  local long="help"
+
+  local opts
+  opts=$(getopt --options ${short} --long ${long} --name "${SH_ME}" -- "$SH_ARGS")
+  if [[ $? -ne 0 ]]; then
+    error "Failed to parse arguments"
+    exit 1
+  fi
+
+  eval set -- "${opts}"
+  while true; do
+    case "$1" in
+      -h|--help)
+        sh_print_usage
+        exit 0
+        ;;
+      --)
+        shift
+        break
+        ;;
+      *)
+        error "Unknown option: $1"
+        exit 1
+        ;;
+    esac
+  done
+
+  # Handle positional arguments
+  local cmd
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      all)
+        echo ${SHUTDOWN_ALL} > ${SHUTDOWN_CMD_FILE}
+        cmd=${SHUTDOWN_ALL}
+        shift
+        ;;
+      *)
+        error "Unknown or too many argument: $1"
+        exit 1
+        ;;
+    esac
+  done
+
+  if [[ "${cmd}" == "${SHUTDOWN_ALL}" ]]; then
+    logInfo "Marked all systems for shutdown"
+    exit 0
+  fi
+}
+
+sh_print_usage() {
+  cat <<EOF
+Shutdown the system
+
+Usage: ${SH_ME} [OPTION] [all]
+
+Options:
+  -h, --help  Display this help and exit
+Arguments:
+  all         Mark all systems for shutdown
+EOF
 }
 
 info() {
@@ -98,7 +164,9 @@ error() {
 }
 
 # Constants
-SHUTDOWN_CMD_FILE="/tmp/shutdown_cmd.env"
+SHUTDOWN_CMD_FILE="/tmp/shutdown.cmd"
+SHUTDOWN_LOCAL="local"
+SHUTDOWN_ALL="all"
 
 # XCP-ng message levels
 LVL_ERROR=1
@@ -126,6 +194,7 @@ SH_ROOT=$(cd -P "$(dirname "${SH_SOURCE}")" >/dev/null 2>&1 && pwd)
 SH_ROOT=$(realpath "${SH_ROOT}/../..")
 
 # Import dependencies
+LOG_CONSOLE=0
 SETUP_REPO_DIR="${SH_ROOT}/external/setup"
 source ${SETUP_REPO_DIR}/src/slf4sh.sh
 source ${SETUP_REPO_DIR}/src/config.sh
