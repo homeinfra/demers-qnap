@@ -5,7 +5,26 @@
 
 startup_main() {
   logInfo "Starting up..."
+  init
 
+  # Start HAL deamon
+  if ! ${HOME_BIN}/qnap_hal local hal_daemon -f; then
+    error "Failed to start HAL daemon"
+  fi
+
+  # Register USB Copy Button to perform a total shutdown
+  # TODO
+
+  # Startup complete
+  if ! ${HOME_BIN}/qhal beep Online; then
+    error "Failed to buzz indicating startup complete"
+  fi
+
+  logInfo "Startup complete"
+  return 0
+}
+
+init() {
   if ! res=$(xe host-list name-label=$(hostname) --minimal); then
     logError "Failed to get host"
     exit 1
@@ -20,31 +39,14 @@ startup_main() {
     HOST_ID=${res}
   fi
 
-  # Start HAL deamon
-  if ! qnap_hal local hal_daemon -f; then
-    error "Failed to start HAL daemon"
+  # Load configuration
+  if ! config_load "${ST_ROOT}/data/install.env"; then
+    logError "Failed to load install configuration"
   fi
-
-  # Register USB Copy Button to perform a total shutdown
-  # TODO
-
-  # Startup complete
-  if ! qhal beep Online; then
-    error "Failed to buzz indicating startup complete"
+  if ! config_load "${CONFIG_DIR}/email.env"; then
+    logError "Failed to load QNAP configuration"
   fi
-
-  logInfo "Startup complete"
-  return 0
 }
-
-
-  # # Load configuration
-  # if ! config_load "${ST_ROOT}/data/install.env"; then
-  #   logError "Failed to load install configuration"
-  # fi
-  # if ! config_load "${CONFIG_DIR}/email.env"; then
-  #   logError "Failed to load QNAP configuration"
-  # fi
 
 info() {
   logInfo "$1"

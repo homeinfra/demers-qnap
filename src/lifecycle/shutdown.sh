@@ -5,20 +5,7 @@
 
 shutdown_main() {
   logInfo "Shutting down..."
-
-  if ! res=$(xe host-list name-label=$(hostname) --minimal); then
-    logError "Failed to get host"
-    exit 1
-  elif [[ -z "${res}" ]]; then
-    logError "Host not found"
-    exit 1
-  elif [[ "${res}" == *","* ]]; then
-    logError "Multiple hosts found"
-    exit 1
-  else
-    logTrace "Host identified: ${res}"
-    HOST_ID=${res}
-  fi
+  init
 
   if [[ -f "${SHUTDOWN_CMD_FILE}" ]]; then
     source "${SHUTDOWN_CMD_FILE}"
@@ -28,14 +15,14 @@ shutdown_main() {
   fi
   if [[ "${SH_CMD}" == "local" ]]; then
     info "Shutting down locally"
-    if ! qhal beep Error; then
+    if ! ${HOME_BIN}/qhal beep Error; then
       logError "Failed to buzz indicating local shutdown"
     fi
     shutdown_local
     return $?
   elif [[ "${SH_CMD}" == "all" ]]; then
     info "Shutting down all"
-    if ! qhal beep Outage; then
+    if ! ${HOME_BIN}/qhal beep Outage; then
       logError "Failed to buzz indicating all shutdown"
     fi
     shutdown_all
@@ -44,6 +31,8 @@ shutdown_main() {
     error "Unknown shutdown command: ${SH_CMD}. Perfoming a local shudown only"
     SH_CMD="local"
   fi
+
+  logInfo "Shutdown complete. Letting the OS handle the rest"
 }
 
 shutdown_local() {
@@ -59,6 +48,30 @@ shutdown_all() {
 notify_wait_sol() {
   # Notify SOL we are going down, wait for the OK
   return 0
+}
+
+init() {
+  if ! res=$(xe host-list name-label=$(hostname) --minimal); then
+    logError "Failed to get host"
+    exit 1
+  elif [[ -z "${res}" ]]; then
+    logError "Host not found"
+    exit 1
+  elif [[ "${res}" == *","* ]]; then
+    logError "Multiple hosts found"
+    exit 1
+  else
+    logTrace "Host identified: ${res}"
+    HOST_ID=${res}
+  fi
+
+  # Load configuration
+  if ! config_load "${ST_ROOT}/data/install.env"; then
+    logError "Failed to load install configuration"
+  fi
+  if ! config_load "${CONFIG_DIR}/email.env"; then
+    logError "Failed to load QNAP configuration"
+  fi
 }
 
 info() {
