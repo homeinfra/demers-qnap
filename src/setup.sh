@@ -5,8 +5,6 @@
 #
 # Currently tested on XCP-ng 8.3 (CentOS)
 
-AGE_KEY="homeinfra_demers"
-
 setup() {
   # Load install configuration
   local install_cfg="${DQ_ROOT}/data/install.env"
@@ -63,6 +61,11 @@ setup() {
     return 1
   fi
 
+  if ! local_xcp_config; then
+    logError "Failed to configure local XCP-ng"
+    return 1
+  fi
+
   return 0
 }
 
@@ -102,6 +105,26 @@ check_system() {
   return 1
 }
 
+local_xcp_config() {
+  # Configure emails
+  if ! email_install; then
+    logError "Failed to install email configuration"
+    return 1
+  fi
+
+  # Configure Boot drive monitoring
+  if ! sd_configure; then
+    logError "Failed to install smartd"
+    return 1
+  fi
+  if ! md_configure; then
+    logError "Failed to install mdadm"
+    return 1
+  fi
+
+  return 0
+}
+
 configure_hardware() {
   # Configure sensors
   if ! sensor_install; then
@@ -123,6 +146,9 @@ configure_hardware() {
 
   return 0
 }
+
+# Constants
+AGE_KEY="homeinfra_demers"
 
 ###########################
 ###### Startup logic ######
@@ -156,6 +182,9 @@ source ${DQ_ROOT}/src/hal/identity.sh
 source ${DQ_ROOT}/src/aq113c/aq113c.sh
 source ${DQ_ROOT}/src/hal/sensors.sh
 source ${DQ_ROOT}/src/hal/qnap_hal.sh
+source ${DQ_ROOT}/src/email/email.sh
+source ${DQ_ROOT}/src/raid/mdadm.sh
+source ${DQ_ROOT}/src/raid/smartd.sh
 
 if [[ -p /dev/stdin ]] && [[ -z ${BASH_SOURCE[0]} ]]; then
   # This script was piped

@@ -74,11 +74,11 @@ aq113c_download() {
   local location
   local workspace
 
-  if [[ -z "${BIN_DIR}"]]; then
+  if [[ -z "${BIN_DIR}" ]]; then
     logError "BIN_DIR is not set"
     return 1
   fi
-  if [[ -z "${DOWNLOAD_DIR}"]]; then
+  if [[ -z "${DOWNLOAD_DIR}" ]]; then
     logError "DOWNLOAD_DIR is not set"
     return 1
   fi

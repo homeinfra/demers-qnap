@@ -18,13 +18,13 @@ email_install() {
     logError "Email setup script not found"
     return 1
   fi
-  if ! "${email_setup_script}" configure "${mail_config_src}" "${mta_config_src}"; then
+  if ! BIN_DIR=${BIN_DIR} CONFIG_DIR=${CONFIG_DIR} "${email_setup_script}" configure "${client_config_src}" "${mta_config_src}"; then
     logError "Failed to configure email"
     return 1
   fi
 
   # Configure XCP-ng
-  if ! xh_configure_email "${mail_config_dst}"; then
+  if ! xe_configure_email "${client_config_src}"; then
     logError "Failed to configure email"
     return 1
   else
@@ -53,7 +53,7 @@ EM_ROOT=$(cd -P "$(dirname "${EM_SOURCE}")" >/dev/null 2>&1 && pwd)
 EM_ROOT=$(realpath "${EM_ROOT}/../..")
 
 # Import dependencies
-SETUP_REPO_DIR="${MD_ROOT}/external/setup"
+SETUP_REPO_DIR="${EM_ROOT}/external/setup"
 XE_LIB_DIR="${EM_ROOT}/libs/xenapi"
 source ${SETUP_REPO_DIR}/src/slf4sh.sh
 source ${XE_LIB_DIR}/src/xe_host.sh

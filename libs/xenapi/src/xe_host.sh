@@ -16,7 +16,7 @@ fi
 # Returns:
 #   0: If host was found
 #   1: If host was not found
-xh_current_host() {
+xe_current_host() {
   local _id="$1"
 
   # Check tool is available
@@ -49,7 +49,7 @@ xh_current_host() {
 # Returns:
 #   0: If pool was found
 #   1: If pool was not found
-xh_current_pool() {
+xe_current_pool() {
   local _id="$1"
 
   # Check tool is available
@@ -81,17 +81,17 @@ xh_current_pool() {
 #   0: If host is the pool master
 #   1: If any error occurred
 #   2: If host is not the pool master
-xh_is_pool_masater() {
+xe_is_pool_masater() {
   local cur_host
   local cur_pool
   local cur_master
   local res
 
-  if ! xh_current_host cur_host; then
+  if ! xe_current_host cur_host; then
     logError "Failed to get current host"
     return 1
   fi
-  if ! xh_current_pool cur_pool; then
+  if ! xe_current_pool cur_pool; then
     logError "Failed to get current pool"
     return 1
   fi
@@ -120,14 +120,14 @@ xh_is_pool_masater() {
 #
 # Parameters:
 #   $1[in]: sendemail.conf file
-xh_configure_email() {
+xe_configure_email() {
   local _config="$1"
 
   if [[ -z "${BIN_DIR}" ]]; then
     logError "BIN_DIR is not set"
     return 1
   fi
-  if ! xh_is_pool_masater; then
+  if ! xe_is_pool_masater; then
     logError "Host is not the pool master. Do not configure email"
     return 0
   fi
@@ -144,7 +144,7 @@ xh_configure_email() {
 
   # Ok, we need to configure emails
   local cur_pool
-  if ! xh_current_pool cur_pool; then
+  if ! xe_current_pool cur_pool; then
     logError "Failed to get current pool"
     return 1
   fi

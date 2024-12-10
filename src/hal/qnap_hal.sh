@@ -214,6 +214,7 @@ QN_ROOT=$(realpath "${QN_ROOT}/../..")
 # Import dependencies
 SETUP_REPO_DIR="${QN_ROOT}/external/setup"
 source ${SETUP_REPO_DIR}/src/slf4sh.sh
+source ${SETUP_REPO_DIR}/src/config.sh
 source ${SETUP_REPO_DIR}/src/env.sh
 source ${SETUP_REPO_DIR}/src/pkg.sh
 source ${SETUP_REPO_DIR}/src/python.sh
