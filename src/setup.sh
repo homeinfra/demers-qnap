@@ -6,9 +6,32 @@
 # Currently tested on XCP-ng 8.3 (CentOS)
 
 setup() {
+  if ! setup_dependencies; then
+    logError "Failed to setup dependencies"
+    return 1
+  fi
+
+  if ! setup_host_hardware; then
+    logError "Failed to setup host hardware"
+    return 1
+  fi
+
+  if ! local_xcp_config; then
+    logError "Failed to configure local XCP-ng"
+    return 1
+  fi
+
+  if [[ ${REBOOT_REQUIRED} -eq 1 ]]; then
+    logInfo "Rebooting..."
+    shutdown -r now
+  fi
+
+  return 0
+}
+
+setup_dependencies() {
   # Load install configuration
-  local install_cfg="${DQ_ROOT}/data/install.env"
-  if ! config_load "${install_cfg}"; then
+  if ! config_load "${DQ_ROOT}/data/local.env"; then
     logError "Failed to load install configuration"
     return 1
   fi
@@ -37,13 +60,19 @@ setup() {
     return 1
   fi
 
-  config_load "${DQ_ROOT}/data/qnap.env"
+  return 0
+}
 
-  # Make sure we are running on the right system
+setup_host_hardware() {
+  config_load "${DQ_ROOT}/data/hardware.env"
+
+  # Make sure we are executing on the right system
   if ! check_system; then
     logError "This script is not supported on this system"
     return 1
   fi
+
+  # TODO: Configure partitions
 
   # Install drivers for the 10 GBe NIC
   if ! aq113c_install; then
@@ -56,15 +85,40 @@ setup() {
     return 1
   fi
 
-  if ! configure_hardware; then
-    logError "Failed to configure hardware"
+  # Configure sensors
+  if ! sensor_install; then
+    logError "Failed to install sensors"
     return 1
   fi
 
-  if ! local_xcp_config; then
-    logError "Failed to configure local XCP-ng"
+  # Configure QNAP HAL
+  if ! qnap_hal_install; then
+    logError "Failed to install QNAP HAL"
     return 1
   fi
+
+  # Test hardware by using the buzzer
+  if ! qhal beep Online; then
+    logError "Failed to test buzzer"
+    return 1
+  fi
+
+  # TODO: UPS configuration
+
+  # Hide PCI devices from dom0, as they will be passed to VMs
+  local res
+  passthrough_configure
+  res=$?
+  if ! ${res}; then
+    if [[ ${res} -eq 2 ]]; then
+      logInfo "Reboot required"
+      REBOOT_REQUIRED=1
+    else
+      logError "Failed to configure PCI passthrough"
+      return 1
+    fi
+  fi
+  logInfo "PCI passthrough configured"
 
   return 0
 }
@@ -133,33 +187,18 @@ local_xcp_config() {
     return 1
   fi
 
-  return 0
-}
+  #TODO: Local ISO storage
 
-configure_hardware() {
-  # Configure sensors
-  if ! sensor_install; then
-    logError "Failed to install sensors"
-    return 1
-  fi
-
-  # Configure QNAP HAL
-  if ! qnap_hal_install; then
-    logError "Failed to install QNAP HAL"
-    return 1
-  fi
-
-  # Test hardware by using the buzzer
-  if ! qhal beep Online; then
-    logError "Failed to test buzzer"
-    return 1
-  fi
+  #TODO: Local VM storage
+  
+  #TODO: NetData agent
 
   return 0
 }
 
 # Constants
 AGE_KEY="homeinfra_demers"
+REBOOT_REQUIRED=0
 
 ###########################
 ###### Startup logic ######
@@ -197,6 +236,7 @@ source ${DQ_ROOT}/src/email/email.sh
 source ${DQ_ROOT}/src/raid/mdadm.sh
 source ${DQ_ROOT}/src/raid/smartd.sh
 source ${DQ_ROOT}/src/lifecycle/daemon.sh
+source ${DQ_ROOT}/src/iommu/passthrough.sh
 
 if [[ -p /dev/stdin ]] && [[ -z ${BASH_SOURCE[0]} ]]; then
   # This script was piped

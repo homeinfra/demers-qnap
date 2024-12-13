@@ -542,7 +542,7 @@ def status_daemon(logger):
 
 def load_config():
   """Load project configuration."""
-  filename=f"{ROOT}/data/install.env"
+  filename=f"{ROOT}/data/local.env"
   load_dotenv(filename, override=True)
 
   # all_config_files = os.environ['LOCAL_CONFIG']

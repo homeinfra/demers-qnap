@@ -176,7 +176,7 @@ qnap_hal_init() {
 # Parameters:
 #   $@: The command to call
 qnap_hal_invoke() {
-  if ! config_load "${QN_ROOT}/data/install.env"; then
+  if ! config_load "${QN_ROOT}/data/local.env"; then
     logError "Failed to load configuration"
     return 1
   fi

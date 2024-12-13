@@ -65,8 +65,8 @@ init() {
   fi
 
   # Load configuration
-  if ! config_load "${SH_ROOT}/data/install.env"; then
-    logError "Failed to load install configuration"
+  if ! config_load "${SH_ROOT}/data/local.env"; then
+    logError "Failed to load local configuration"
   fi
   if ! config_load "${CONFIG_DIR}/email.env"; then
     logError "Failed to load QNAP configuration"
