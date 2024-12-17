@@ -130,11 +130,11 @@ setup_host_hardware() {
 setup_ups() {
   # Prepare configuration
   local nut_script="${DQ_ROOT}/src/lifecycle/nut_handler.sh"
-  local driver_file="${DQ_ROOT}/data/nut/ups.conf"
-  local daemon_file="${DQ_ROOT}/data/nut/upsd.conf"
-  local user_file="${DQ_ROOT}/data/nut/upsd.users"
-  local monitor_file="${DQ_ROOT}/data/nut/upsmon.conf"
-  local scheduler_file="${DQ_ROOT}/data/nut/upssched.conf"
+  local driver_file="${DQ_ROOT}/data/ups/ups.conf"
+  local daemon_file="${DQ_ROOT}/data/ups/upsd.conf"
+  local user_file="${DQ_ROOT}/data/ups/upsd.users"
+  local monitor_file="${DQ_ROOT}/data/ups/upsmon.conf"
+  local scheduler_file="${DQ_ROOT}/data/ups/upssched.conf"
 
   # Make sure each of these files exists
   if [[ ! -f "${nut_script}" ]]; then
@@ -313,10 +313,11 @@ DQ_ROOT=$(realpath "${DQ_ROOT}/..")
 SETUP_REPO_DIR="${DQ_ROOT}/external/setup"
 XE_LIB_DIR="${DQ_ROOT}/libs/xenapi"
 source ${SETUP_REPO_DIR}/src/slf4sh.sh
+source ${SETUP_REPO_DIR}/src/config.sh
 source ${SETUP_REPO_DIR}/src/git.sh
 source ${SETUP_REPO_DIR}/src/sops.sh
 source ${SETUP_REPO_DIR}/src/age.sh
-source ${SETUP_REPO_DIR}/src/config.sh
+source ${SETUP_REPO_DIR}/src/nut.sh
 source ${XE_LIB_DIR}/src/xe_network.sh
 source ${DQ_ROOT}/src/hal/identity.sh
 source ${DQ_ROOT}/src/aq113c/aq113c.sh

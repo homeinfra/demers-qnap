@@ -5,7 +5,7 @@
 
 shutdown_main() {
   logInfo "Shutting down..."
-  init
+  shutdown_init
 
   # If we reach here, the system really is going down
 
@@ -49,11 +49,10 @@ notify_wait_sol() {
   : # TODO
 }
 
-init() {
+shutdown_init() {
   if ! command -v xe &> /dev/null; then
     logError "XCP-ng tools not found"
     return 1
-  fi
   elif ! res=$(xe host-list name-label=$(hostname) --minimal); then
     logError "Failed to get host"
     exit 1

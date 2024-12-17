@@ -7,7 +7,7 @@
 TEST_MODE=1
 
 nut_main() {
-  if ! init; then
+  if ! nut_init; then
     logError "Failed to initialize"
     return 1
   fi
@@ -16,8 +16,6 @@ nut_main() {
     logError "Failed to parse arguments"
     return 1
   fi
-
-
 }
 
 nut_init() {
@@ -26,7 +24,6 @@ nut_init() {
   if ! command -v xe &> /dev/null; then
     logError "XCP-ng tools not found"
     return 1
-  fi
   elif ! res=$(xe host-list name-label=$(hostname) --minimal); then
     logError "Failed to get host"
     return 1
@@ -222,7 +219,7 @@ END
   UPS_MSG=$(cat <<END
 ${UPS_MSG}
 
-Subject: ${SUBJECT}
+Subject: ${UPS_SUB}
 
 Arguments to ${UP_ME}: (${#UP_ARGS[@]}):
 $(for arg in "${UP_ARGS[@]}"; do echo "  ${arg}"; done)
@@ -257,12 +254,12 @@ END
   if [[ $? -ne 0 ]]; then
     logError "Failed to send UPS email"
   else
-    logInfo "RAID email sent succesfully"
+    logInfo "UPS email sent succesfully"
   fi
 
   # Send a XCP-ng notification
   xe message-create name="UPS Event" body="${SUBJECT}" priority=$LVL_WARN host-uuid=${HOST_ID}
-  if [[ \$? -ne 0 ]]; then
+  if [[ $? -ne 0 ]]; then
     logError "Failed to send UPS notification to XCP-ng"
   else
     logInfo "UPS notification sent to XCP-ng"
@@ -316,7 +313,6 @@ nut_parse() {
           ;;
       esac
     elif [[ "${1}" != "--" ]]; then
-      shift
       cmd_args=("$@")
       break
     else

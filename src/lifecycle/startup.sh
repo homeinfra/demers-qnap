@@ -5,7 +5,7 @@
 
 startup_main() {
   logInfo "Starting up..."
-  init
+  startup_init
 
   hardware_init
 
@@ -38,11 +38,10 @@ hardware_init() {
   fi
 }
 
-init() {
+startup_init() {
   if ! command -v xe &> /dev/null; then
     logError "XCP-ng tools not found"
     return 1
-  fi
   elif ! res=$(xe host-list name-label=$(hostname) --minimal); then
     logError "Failed to get host"
     exit 1
