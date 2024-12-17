@@ -252,7 +252,7 @@ Logging a UPS event:
 ${UPS_MSG}
 END
 
-  echo "${UPS_MSG}" | ${MAIL_CMD} -s "${SUBJECT}" -r ${SENDER} ${SYSADMIN}
+  echo "${UPS_MSG}" | ${MAIL_CMD} -s "${UPS_SUB}" -r ${SENDER} ${SYSADMIN}
   if [[ $? -ne 0 ]]; then
     logError "Failed to send UPS email"
   else
@@ -260,7 +260,7 @@ END
   fi
 
   # Send a XCP-ng notification
-  xe message-create name="UPS Event" body="${SUBJECT}" priority=$LVL_WARN host-uuid=${HOST_ID}
+  xe message-create name="UPS Event" body="${UPS_SUB}" priority=$LVL_WARN host-uuid=${HOST_ID}
   if [[ $? -ne 0 ]]; then
     logError "Failed to send UPS notification to XCP-ng"
   else
