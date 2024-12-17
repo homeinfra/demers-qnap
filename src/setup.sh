@@ -109,7 +109,6 @@ setup_host_hardware() {
   fi
 
   # Hide PCI devices from dom0, as they will be passed to VMs
-  # TODO: See if we can hide front USB too
   local res
   passthrough_configure
   res=$?

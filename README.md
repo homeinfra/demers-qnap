@@ -68,13 +68,13 @@ Local tasks:
   - [x] HAL fan command
   - [x] HAL beep command
   - [ ] LCD + Buttons (Been unable to make it work. See branch feature/lcd)
-- [ ] Limit number of ssh-agent isntances created by .bashrc
+- [x] Limit number of ssh-agent isntances created by .bashrc
 - [x] PCI Passthrough
 - [x] XCP-ng email notifications
 - [x] smartd test and monitoring alerts
 - [x] mdadm scrubbing and monitoring alerts
 - [x] Re-enable ACPI power button
-- [ ] NUT UPS support
+- [x] NUT UPS support
 - [ ] Partitions
 - [ ] NetData (hardware monitoring)
 - [ ] Local ISO storage
