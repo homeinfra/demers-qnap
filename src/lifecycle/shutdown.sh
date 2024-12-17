@@ -46,7 +46,7 @@ shutdown_all() {
 
 notify_wait_sol() {
   # Notify SOL we are going down, wait for the OK
-  /sbin/shutdown -h +0
+  # TODO: Wait on SOL being ready
 }
 
 shutdown_init() {
@@ -134,7 +134,7 @@ sh_parse() {
     if [[ "${cmd}" == "${SHUTDOWN_ALL}" ]]; then
       if [[ "${opt}" == "-e" ]]; then
         logInfo "Trigger the shutdown"
-        shutdown -h now &
+        /sbin/shutdown -h +0
         if [[ $? -ne 0 ]]; then
           error "Failed to trigger shutdown"
         else
