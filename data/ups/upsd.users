@@ -1,0 +1,11 @@
+[qnap_server]
+  password = 68wvmgui
+  actions = set
+  instcmds = all
+  upsmon primary
+
+[qnap_client]
+  password = 68wvmgui
+  actions = set
+  instcmds = all
+  upsmon secondary

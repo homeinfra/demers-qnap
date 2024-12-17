@@ -100,7 +100,7 @@ END
 )
 fi
 
-SUBJECT="[\$(hostname)] SMART - \${SMARTD_MESSAGE}"
+SUBJECT="[\${HOSTNAME}] SMART - \${SMARTD_FAILTYPE} on \${SMARTD_DEVICE}"
 MESSAGE=\$(cat <<END
 
 Subject: \${SUBJECT}

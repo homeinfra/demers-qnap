@@ -39,7 +39,11 @@ hardware_init() {
 }
 
 init() {
-  if ! res=$(xe host-list name-label=$(hostname) --minimal); then
+  if ! command -v xe &> /dev/null; then
+    logError "XCP-ng tools not found"
+    return 1
+  fi
+  elif ! res=$(xe host-list name-label=$(hostname) --minimal); then
     logError "Failed to get host"
     exit 1
   elif [[ -z "${res}" ]]; then

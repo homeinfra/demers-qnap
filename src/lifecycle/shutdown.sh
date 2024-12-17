@@ -50,7 +50,11 @@ notify_wait_sol() {
 }
 
 init() {
-  if ! res=$(xe host-list name-label=$(hostname) --minimal); then
+  if ! command -v xe &> /dev/null; then
+    logError "XCP-ng tools not found"
+    return 1
+  fi
+  elif ! res=$(xe host-list name-label=$(hostname) --minimal); then
     logError "Failed to get host"
     exit 1
   elif [[ -z "${res}" ]]; then
@@ -157,7 +161,7 @@ Options:
   -e, --execute Trigger the shutdown as well as marking all systems for shutdown
 Arguments:
   all         Mark all systems for shutdown
-  local       Mark only this system for shutdown
+  local       Mark only this system for shutdown [default]
 EOF
 }
 

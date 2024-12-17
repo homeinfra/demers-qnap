@@ -76,7 +76,7 @@ END
 )
 fi
 
-SUBJECT="[\$(hostname)] RAID - \${MDADM_EVENT} on \${MDADM_DEVICE}"
+SUBJECT="[\${HOSTNAME}] RAID - \${MDADM_EVENT} on \${MDADM_DEVICE}"
 MESSAGE=\$(cat <<END
 
 Subject: \${SUBJECT}

@@ -103,13 +103,17 @@ setup_host_hardware() {
     return 1
   fi
 
-  # TODO: UPS configuration
+  if ! setup_ups; then
+    logError "Failed to setup UPS"
+    return 1
+  fi
 
   # Hide PCI devices from dom0, as they will be passed to VMs
+  # TODO: See if we can hide front USB too
   local res
   passthrough_configure
   res=$?
-  if ! ${res}; then
+  if [[ ${res} -ne 0 ]]; then
     if [[ ${res} -eq 2 ]]; then
       logInfo "Reboot required"
       REBOOT_REQUIRED=1
@@ -119,6 +123,92 @@ setup_host_hardware() {
     fi
   fi
   logInfo "PCI passthrough configured"
+
+  return 0
+}
+
+setup_ups() {
+  # Prepare configuration
+  local nut_script="${DQ_ROOT}/src/lifecycle/nut_handler.sh"
+  local driver_file="${DQ_ROOT}/data/nut/ups.conf"
+  local daemon_file="${DQ_ROOT}/data/nut/upsd.conf"
+  local user_file="${DQ_ROOT}/data/nut/upsd.users"
+  local monitor_file="${DQ_ROOT}/data/nut/upsmon.conf"
+  local scheduler_file="${DQ_ROOT}/data/nut/upssched.conf"
+
+  # Make sure each of these files exists
+  if [[ ! -f "${nut_script}" ]]; then
+    logError "NUT handler script not found"
+    return 1
+  fi
+  if [[ ! -f "${driver_file}" ]]; then
+    logError "UPS driver configuration file not found"
+    return 1
+  fi
+  if [[ ! -f "${daemon_file}" ]]; then
+    logError "UPS daemon configuration file not found"
+    return 1
+  fi
+  if [[ ! -f "${user_file}" ]]; then
+    logError "UPS user configuration file not found"
+    return 1
+  fi
+  if [[ ! -f "${monitor_file}" ]]; then
+    logError "UPS monitor configuration file not found"
+    return 1
+  fi
+  if [[ ! -f "${scheduler_file}" ]]; then
+    logError "UPS scheduler configuration file not found"
+    return 1
+  fi
+
+  # Install script
+  local nut_script_dest="${BIN_DIR}/nut_handler"
+  if [[ -L "${nut_script_dest}" ]]; then
+    if [[ "$(readlink "${nut_script_dest}")" == "${nut_script}" ]]; then
+      logInfo "${nut_script} already symlinked"
+    else
+      logError "${nut_script} is not symlinked to ${nut_script_dest}"
+      return 1
+    fi
+  elif [[ -f "${nut_script_dest}" ]]; then
+    logError "A ${nut_script} file already exists"
+    return 1
+  else
+    if ! ln -s "${nut_script}" "${nut_script_dest}"; then
+      logError "Failed to create ${nut_script} simlink"
+      return 1
+    else
+      logInfo "Created symlink to ${nut_script} successfully"
+    fi
+  fi
+
+  # Load configuration files
+  local driver_content
+  local daemon_content
+  local user_content
+  local monitor_content
+  local scheduler_content
+
+  driver_content=$(cat "${driver_file}")
+  daemon_content=$(cat "${daemon_file}")
+  user_content=$(cat "${user_file}")
+  monitor_content=$(cat "${monitor_file}")
+  scheduler_content=$(cat "${scheduler_file}")
+
+  # Configure NUT by making dynamic repplaces for the @value@ tags in the files
+  monitor_content="${monitor_content//"@NOTIFY_CMD@"/"${nut_script_dest} event -- "}"
+  monitor_content="${monitor_content//"@SHUTDOWN_CMD@"/"${nut_script_dest} shutdown"}"
+
+  scheduler_content="${scheduler_content//"@SCHED_CMD@"/"${nut_script_dest} timer -- "}"
+  scheduler_content="${scheduler_content//"@PIPEFN@"/"/var/run/nut/upssched.pipe"}"
+  scheduler_content="${scheduler_content//"@LOCKFN@"/"/var/run/nut/upssched.lock"}"
+
+  # Configure NUT
+  if ! nut_setup "netserver" driver_content daemon_content user_content monitor_content scheduler_content; then
+    logError "Failed to configure NUT"
+    return 1
+  fi
 
   return 0
 }
