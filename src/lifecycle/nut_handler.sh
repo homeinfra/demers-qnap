@@ -3,9 +3,6 @@
 #
 # This script handles integration with NUT (Network UPS Tools)
 
-# If set to 1, the script will NOT cause an actual shutdown
-TEST_MODE=1
-
 nut_main() {
   if ! nut_init; then
     logError "Failed to initialize"
@@ -77,10 +74,6 @@ nut_event() {
       ;;
     LOWBATT)
       warn "Battery is critically low: ${not_msg}"
-      "${SCHED_CMD}" "$@"
-      if [[ $? -ne 0 ]]; then
-        error "Failed to invoke upssched for ${not_type}"
-      fi
       notify_event "${not_msg}"
       ;;
     FSD)
@@ -161,18 +154,10 @@ nut_timer() {
   case "${timer_name}" in
     earlyshutdown)
       warn "Triggering an early shutdown"
-      if [[ ${TEST_MODE} -eq 1 ]]; then
-        logDebug "Test mode enabled. Skipping actual shutdown"
+      if ! /usr/sbin/upsmon -c fsd; then
+        error "Failed to call a forced shutdown"
       else
-        /usr/sbin/upsmon -c fsd 
-      fi
-      ;;
-    shutdowncritical)
-      warn "Battery at critical level. Triggering shutdown"
-      if [[ ${TEST_MODE} -eq 1 ]]; then
-        logDebug "Test mode enabled. Skipping actual shutdown"
-      else
-        /usr/sbin/upsmon -c fsd 
+        logInfo "Forced shutdown called"
       fi
       ;;
     *)
@@ -309,7 +294,7 @@ nut_parse() {
           shift
           ;;
         *)
-          error "Unknown command: $1"
+          error "Unknown command: ${1}"
           nut_usage
           return 1
           ;;
@@ -318,7 +303,7 @@ nut_parse() {
       cmd_args=("$@")
       break
     else
-      error "Unknown or too many argument: $1"
+      error "Unknown or too many argument: ${1}"
       return 1
     fi
   done
