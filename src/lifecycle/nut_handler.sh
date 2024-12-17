@@ -65,6 +65,7 @@ nut_event() {
         error "Failed to invoke upssched for ${not_type}"
       fi
       notify_event "${not_msg}"
+      ${HOME_BIN}/qhal beep Online
       ;;
     ONBATT)
       "${SCHED_CMD}" "$@"
@@ -72,6 +73,7 @@ nut_event() {
         error "Failed to invoke upssched for ${not_type}"
       fi
       notify_event "${not_msg}"
+      ${HOME_BIN}/qhal beep Outage
       ;;
     LOWBATT)
       warn "Battery is critically low: ${not_msg}"
@@ -180,7 +182,7 @@ nut_timer() {
 }
 
 nut_shutdown() {
-  if ! /sbin/shutdown -h +0; then
+  if ! "${UP_ROOT}/src/lifecycle/shutdown.sh" -e all; then
     error "Failed to cause a OS shutdown"
     return 1
   fi

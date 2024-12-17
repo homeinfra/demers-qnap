@@ -46,7 +46,7 @@ shutdown_all() {
 
 notify_wait_sol() {
   # Notify SOL we are going down, wait for the OK
-  : # TODO
+  /sbin/shutdown -h +0
 }
 
 shutdown_init() {
