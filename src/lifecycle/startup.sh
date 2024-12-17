@@ -14,7 +14,7 @@ startup_main() {
     error "Failed to buzz indicating startup complete"
   fi
 
-  logInfo "Startup complete"
+  info "Startup complete"
   return 0
 }
 
