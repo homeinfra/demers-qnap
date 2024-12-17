@@ -46,7 +46,7 @@ shutdown_all() {
 
 notify_wait_sol() {
   # Notify SOL we are going down, wait for the OK
-  # TODO: Wait on SOL being ready
+  : # TODO: Wait on SOL being ready
 }
 
 shutdown_init() {
