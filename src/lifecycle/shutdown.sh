@@ -208,7 +208,7 @@ LVL_TRACE=5
 ###########################
 SH_ARGS=("$@")
 SH_CWD=$(pwd)
-SH_ME="$(basename "$0")"
+SH_ME="$(basename "${BASH_SOURCE[0]}")"
 
 # Get directory of this script
 # https://stackoverflow.com/a/246128

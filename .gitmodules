@@ -2,3 +2,6 @@
 	path = external/setup
 	url = git@github.com:jeremfg/setup.git
 	branch = main
+[submodule "external/xapi.sh"]
+	path = external/xapi.sh
+	url = git@github.com:jeremfg/xapi.sh.git

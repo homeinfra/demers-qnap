@@ -52,7 +52,7 @@ passthrough_configure() {
 ###########################
 PI_ARGS=("$@")
 PI_CWD=$(pwd)
-PI_ME="$(basename "$0")"
+PI_ME="$(basename "${BASH_SOURCE[0]}")"
 
 # Get directory of this script
 # https://stackoverflow.com/a/246128

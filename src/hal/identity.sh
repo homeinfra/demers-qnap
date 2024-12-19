@@ -182,7 +182,7 @@ id_identify() {
 
 ID_ARGS=("$@")
 ID_CWD=$(pwd)
-ID_ME="$(basename "$0")"
+ID_ME="$(basename "${BASH_SOURCE[0]}")"
 
 # Get directory of this script
 # https://stackoverflow.com/a/246128

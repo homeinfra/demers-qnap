@@ -140,7 +140,7 @@ AQ_URL="https://www.marvell.com/content/dam/marvell/en/drivers/marvell_linux_${A
 ###########################
 AQ_ARGS=("$@")
 AQ_CWD=$(pwd)
-AQ_ME="$(basename "$0")"
+AQ_ME="$(basename "${BASH_SOURCE[0]}")"
 
 # Get directory of this script
 # https://stackoverflow.com/a/246128

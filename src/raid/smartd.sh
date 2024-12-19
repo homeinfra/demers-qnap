@@ -269,7 +269,7 @@ sd_test_alerts() {
 ###########################
 SD_ARGS=("$@")
 SD_CWD=$(pwd)
-SD_ME="$(basename "$0")"
+SD_ME="$(basename "${BASH_SOURCE[0]}")"
 
 # Get directory of this script
 # https://stackoverflow.com/a/246128

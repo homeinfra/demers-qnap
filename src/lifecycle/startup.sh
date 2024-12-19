@@ -106,7 +106,7 @@ LVL_TRACE=5
 ###########################
 ST_ARGS=("$@")
 ST_CWD=$(pwd)
-ST_ME="$(basename "$0")"
+ST_ME="$(basename "${BASH_SOURCE[0]}")"
 
 # Get directory of this script
 # https://stackoverflow.com/a/246128

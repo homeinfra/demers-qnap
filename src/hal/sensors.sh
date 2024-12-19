@@ -60,7 +60,7 @@ sensor_detect() {
 
 SE_ARGS=("$@")
 SE_CWD=$(pwd)
-SE_ME="$(basename "$0")"
+SE_ME="$(basename "${BASH_SOURCE[0]}")"
 
 # Get directory of this script
 # https://stackoverflow.com/a/246128

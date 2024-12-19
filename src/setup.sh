@@ -295,7 +295,7 @@ REBOOT_REQUIRED=0
 
 DQ_ARGS=("$@")
 DQ_CWD=$(pwd)
-DQ_ME="$(basename "$0")"
+DQ_ME="$(basename "${BASH_SOURCE[0]}")"
 
 # Get directory of this script
 # https://stackoverflow.com/a/246128

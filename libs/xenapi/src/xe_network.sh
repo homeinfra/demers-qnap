@@ -75,7 +75,7 @@ xe_identify_nic() {
 
 XN_ARGS=("$@")
 XN_CWD=$(pwd)
-XN_ME="$(basename "$0")"
+XN_ME="$(basename "${BASH_SOURCE[0]}")"
 
 # Get directory of this script
 # https://stackoverflow.com/a/246128

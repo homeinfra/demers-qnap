@@ -78,7 +78,7 @@ declare -g XE_LOGIN
 
 XE_ARGS=("$@")
 XE_CWD=$(pwd)
-XE_ME="$(basename "$0")"
+XE_ME="$(basename "${BASH_SOURCE[0]}")"
 
 # Get directory of this script
 # https://stackoverflow.com/a/246128

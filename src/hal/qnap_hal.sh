@@ -198,7 +198,7 @@ qnap_hal_invoke() {
 
 QN_ARGS=("$@")
 QN_CWD=$(pwd)
-QN_ME="$(basename "$0")"
+QN_ME="$(basename "${BASH_SOURCE[0]}")"
 
 # Get directory of this script
 # https://stackoverflow.com/a/246128

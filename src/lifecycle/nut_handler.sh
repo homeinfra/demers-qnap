@@ -395,7 +395,7 @@ LVL_TRACE=5
 ###########################
 UP_ARGS=("$@")
 UP_CWD=$(pwd)
-UP_ME="$(basename "$0")"
+UP_ME="$(basename "${BASH_SOURCE[0]}")"
 
 # Get directory of this script
 # https://stackoverflow.com/a/246128

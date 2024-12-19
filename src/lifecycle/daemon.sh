@@ -178,7 +178,7 @@ deamon_configure() {
 ###########################
 DM_ARGS=("$@")
 DM_CWD=$(pwd)
-DM_ME="$(basename "$0")"
+DM_ME="$(basename "${BASH_SOURCE[0]}")"
 
 # Get directory of this script
 # https://stackoverflow.com/a/246128

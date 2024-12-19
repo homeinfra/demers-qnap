@@ -257,7 +257,7 @@ EOF
 
 XH_ARGS=("$@")
 XH_CWD=$(pwd)
-XH_ME="$(basename "$0")"
+XH_ME="$(basename "${BASH_SOURCE[0]}")"
 
 # Get directory of this script
 # https://stackoverflow.com/a/246128
