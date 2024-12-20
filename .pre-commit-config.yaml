@@ -64,14 +64,14 @@ repos:
     rev: v0.14.0  # Latest version from Google
     hooks:
       - id: yamlfmt  # YAML
-  # - repo: local
-  #   hooks:
-  #     - id: my-dotenv-linter # dotenv
-  #       name: dotenv-linter
-  #       pass_filenames: true
-  #       language: system
-  #       entry: ~/.cargo/bin/dotenv-linter
-  #       files: '^(.*\.env)$'
+  - repo: local
+    hooks:
+      - id: my-dotenv-linter  # dotenv
+        name: dotenv-linter
+        pass_filenames: true
+        language: system
+        entry: ~/.cargo/bin/dotenv-linter
+        files: '^(.*\.env)$'
   - repo: https://github.com/klen/pylama
     rev: 8.4.1
     hooks:
