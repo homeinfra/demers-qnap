@@ -70,7 +70,7 @@ repos:
         name: dotenv-linter
         pass_filenames: true
         language: system
-        entry: ~/.cargo/bin/dotenv-linter
+        entry: tool/run-dotenv
         files: '^(.*\.env)$'
   - repo: https://github.com/klen/pylama
     rev: 8.4.1
