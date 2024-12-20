@@ -9,6 +9,7 @@ nut_main() {
     return 1
   fi
 
+  # shellcheck disable=SC2119
   if ! nut_parse; then
     logError "Failed to parse arguments"
     return 1
@@ -16,12 +17,12 @@ nut_main() {
 }
 
 nut_init() {
-  logInfo "Handling a NUT call: ${UP_ARGS[@]}"
+  logInfo "Handling a NUT call: ${UP_ARGS[*]}"
 
   if ! command -v xe &> /dev/null; then
     logError "XCP-ng tools not found"
     return 1
-  elif ! res=$(xe host-list name-label=$(hostname) --minimal); then
+  elif ! res=$(xe host-list name-label="$(hostname)" --minimal); then
     logError "Failed to get host"
     return 1
   elif [[ -z "${res}" ]]; then
@@ -62,7 +63,7 @@ nut_event() {
         error "Failed to invoke upssched for ${not_type}"
       fi
       notify_event "${not_msg}"
-      ${HOME_BIN}/qhal beep Online
+      "${HOME_BIN}/qhal" beep Online
       ;;
     ONBATT)
       "${SCHED_CMD}" "$@"
@@ -70,7 +71,7 @@ nut_event() {
         error "Failed to invoke upssched for ${not_type}"
       fi
       notify_event "${not_msg}"
-      ${HOME_BIN}/qhal beep Outage
+      "${HOME_BIN}/qhal" beep Outage
       ;;
     LOWBATT)
       warn "Battery is critically low: ${not_msg}"
@@ -149,7 +150,7 @@ nut_timer() {
     local timer_args=("$@")
   fi
 
-  logInfo "Handling UPS timer: ${timer_name} (${timer_args[@]})"
+  logInfo "Handling UPS timer: ${timer_name} (${timer_args[*]})"
 
   case "${timer_name}" in
     earlyshutdown)
@@ -221,10 +222,10 @@ $(/usr/bin/upsc -L)
 $(for ups in $(/usr/bin/upsc -l); do
   echo "Data for UPS: ${ups}"
   echo ""
-  /usr/bin/upsc ${ups}
+  /usr/bin/upsc "${ups}"
   echo ""
   echo "Clients for UPS: ${ups}"
-  /usr/bin/upsc -c ${ups}
+  /usr/bin/upsc -c "${ups}"
   echo ""
 done)
 END
@@ -237,7 +238,7 @@ Logging a UPS event:
 ${UPS_MSG}
 END
 
-  echo "${UPS_MSG}" | ${MAIL_CMD} -s "${UPS_SUB}" -r ${SENDER} ${SYSADMIN}
+  echo "${UPS_MSG}" | ${MAIL_CMD} -s "${UPS_SUB}" -r "${SENDER}" "${SYSADMIN}"
   if [[ $? -ne 0 ]]; then
     logError "Failed to send UPS email"
   else
@@ -245,7 +246,7 @@ END
   fi
 
   # Send a XCP-ng notification
-  xe message-create name="UPS Event" body="${UPS_SUB}" priority=$LVL_WARN host-uuid=${HOST_ID}
+  xe message-create name="UPS Event" body="${UPS_SUB}" priority="${LVL_WARN}" host-uuid="${HOST_ID}"
   if [[ $? -ne 0 ]]; then
     logError "Failed to send UPS notification to XCP-ng"
   else
@@ -253,6 +254,7 @@ END
   fi
 }
 
+# shellcheck disable=SC2120
 nut_parse() {
   local short="h"
   local long="help"
@@ -356,7 +358,7 @@ EOF
 info() {
   logInfo "$1"
 
-  xe message-create name="nut_handler" body="$1" priority=${LVL_INFO} host-uuid=${HOST_ID}
+  xe message-create name="nut_handler" body="${1}" priority="${LVL_INFO}" host-uuid="${HOST_ID}"
   if [[ $? -ne 0 ]]; then
     logError "Failed to send notification to XCP-ng"
   fi
@@ -365,7 +367,7 @@ info() {
 warn() {
   logWarn "$1"
 
-  xe message-create name="nut_handler" body="$1" priority=${LVL_WARN} host-uuid=${HOST_ID}
+  xe message-create name="nut_handler" body="${1}" priority="${LVL_WARN}" host-uuid="${HOST_ID}"
   if [[ $? -ne 0 ]]; then
     logError "Failed to send notification to XCP-ng"
   fi
@@ -374,7 +376,7 @@ warn() {
 error() {
   logError "$1"
 
-  xe message-create name="nut_handler" body="$1" priority=${LVL_ERROR} host-uuid=${HOST_ID}
+  xe message-create name="nut_handler" body="${1}" priority="${LVL_ERROR}" host-uuid="${HOST_ID}"
   if [[ $? -ne 0 ]]; then
     logError "Failed to send notification to XCP-ng"
   fi
@@ -387,14 +389,15 @@ SCHED_CMD="/usr/sbin/upssched"
 LVL_ERROR=1
 LVL_WARN=2
 LVL_INFO=3
+# shellcheck disable=SC2034
 LVL_DEBUG=4
+# shellcheck disable=SC2034
 LVL_TRACE=5
 
 ###########################
 ###### Startup logic ######
 ###########################
 UP_ARGS=("$@")
-UP_CWD=$(pwd)
 UP_ME="$(basename "${BASH_SOURCE[0]}")"
 
 # Get directory of this script

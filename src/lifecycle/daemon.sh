@@ -94,12 +94,16 @@ deamon_configure() {
     return 1
   fi
 
-  local startup_script="${DM_ROOT}/src/lifecycle/startup.sh"
-  local shutdown_script="${DM_ROOT}/src/lifecycle/shutdown.sh"
+  local startup_script
+  local shutdown_script
+  startup_script="${DM_ROOT}/src/lifecycle/startup"
+  shutdown_script="${DM_ROOT}/src/lifecycle/shutdown"
 
   # Create the service
-  local service_file_src="${DM_ROOT}/data/qnap_lifecycle.service"
-  local service_file_ist="/etc/systemd/system/$(basename "${service_file_src}")"
+  local service_file_src
+  local service_file_ist
+  service_file_src="${DM_ROOT}/data/qnap_lifecycle.service"
+  service_file_ist="/etc/systemd/system/$(basename "${service_file_src}")"
 
   # Prepare service file
   local _content
@@ -149,8 +153,8 @@ deamon_configure() {
   fi
   
   # Make sure the service is enabled
-  if ! systemctl is-enabled --quiet $(basename "${service_file_ist}"); then
-    if ! systemctl enable $(basename "${service_file_ist}"); then
+  if ! systemctl is-enabled --quiet "$(basename "${service_file_ist}")"; then
+    if ! systemctl enable "$(basename "${service_file_ist}")"; then
       logError "Failed to enable the service"
       return 1
     else
@@ -161,8 +165,8 @@ deamon_configure() {
   fi
 
   # Make sure the service is started
-  if ! systemctl is-active --quiet $(basename "${service_file_ist}"); then
-    if ! systemctl start $(basename "${service_file_ist}"); then
+  if ! systemctl is-active --quiet "$(basename "${service_file_ist}")"; then
+    if ! systemctl start "$(basename "${service_file_ist}")"; then
       logError "Failed to start the service"
       return 1
     else
@@ -176,9 +180,6 @@ deamon_configure() {
 ###########################
 ###### Startup logic ######
 ###########################
-DM_ARGS=("$@")
-DM_CWD=$(pwd)
-DM_ME="$(basename "${BASH_SOURCE[0]}")"
 
 # Get directory of this script
 # https://stackoverflow.com/a/246128

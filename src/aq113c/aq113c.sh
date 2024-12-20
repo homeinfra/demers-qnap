@@ -69,10 +69,12 @@ aq113c_install() {
 #   0: Success
 #   1: Failure
 aq113c_download() {
-  local _path="$1"
-  local archive="$(basename ${AQ_URL})"
+  local _path="${1}"
+  local archive
   local location
   local workspace
+
+  archive="$(basename "${AQ_URL}")"
 
   if [[ -z "${BIN_DIR}" ]]; then
     logError "BIN_DIR is not set"
@@ -102,7 +104,7 @@ aq113c_download() {
 
   # Download the driver
   if [[ ! -f "${location}" ]]; then
-    if ! mkdir -p "$(dirname ${location})"; then
+    if ! mkdir -p "$(dirname "${location}")"; then
       logError "Failed to create directory for AQ113C archive"
       return 1
     fi
@@ -138,9 +140,6 @@ AQ_URL="https://www.marvell.com/content/dam/marvell/en/drivers/marvell_linux_${A
 ###########################
 ###### Startup logic ######
 ###########################
-AQ_ARGS=("$@")
-AQ_CWD=$(pwd)
-AQ_ME="$(basename "${BASH_SOURCE[0]}")"
 
 # Get directory of this script
 # https://stackoverflow.com/a/246128

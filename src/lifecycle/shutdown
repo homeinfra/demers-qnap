@@ -10,21 +10,21 @@ shutdown_main() {
   # If we reach here, the system really is going down
 
   if [[ -f "${SHUTDOWN_CMD_FILE}" ]]; then
-    SH_CMD=$(cat ${SHUTDOWN_CMD_FILE})
-    rm -f ${SHUTDOWN_CMD_FILE}
+    SH_CMD=$(cat "${SHUTDOWN_CMD_FILE}")
+    rm -f "${SHUTDOWN_CMD_FILE}"
   else
     SH_CMD="${SHUTDOWN_LOCAL}"
     warn "No shutdown command found. Assuming: ${SH_CMD}"
   fi
   if [[ "${SH_CMD}" == "${SHUTDOWN_LOCAL}" ]]; then
     info "Shutting down locally"
-    if ! ${HOME_BIN}/qhal beep Error; then
+    if ! "${HOME_BIN}/qhal" beep Error; then
       logError "Failed to buzz indicating local shutdown"
     fi
     shutdown_local
   elif [[ "${SH_CMD}" == "${SHUTDOWN_ALL}" ]]; then
     info "Shutting down all"
-    if ! ${HOME_BIN}/qhal beep Outage; then
+    if ! "${HOME_BIN}/qhal" beep Outage; then
       logError "Failed to buzz indicating all shutdown"
     fi
     shutdown_all
@@ -53,7 +53,7 @@ shutdown_init() {
   if ! command -v xe &> /dev/null; then
     logError "XCP-ng tools not found"
     return 1
-  elif ! res=$(xe host-list name-label=$(hostname) --minimal); then
+  elif ! res=$(xe host-list name-label="$(hostname)" --minimal); then
     logError "Failed to get host"
     exit 1
   elif [[ -z "${res}" ]]; then
@@ -78,6 +78,7 @@ shutdown_init() {
   sh_parse
 }
 
+# shellcheck disable=SC2120
 sh_parse() {
   local short="he"
   local long="help,execute"
@@ -167,7 +168,7 @@ EOF
 info() {
   logInfo "$1"
 
-  xe message-create name="Shutdown" body="$1" priority=${LVL_INFO} host-uuid=${HOST_ID}
+  xe message-create name="Shutdown" body="${1}" priority="${LVL_INFO}" host-uuid="${HOST_ID}"
   if [[ $? -ne 0 ]]; then
     logError "Failed to send notification to XCP-ng"
   fi
@@ -176,7 +177,7 @@ info() {
 warn() {
   logWarn "$1"
 
-  xe message-create name="Shutdown" body="$1" priority=${LVL_WARN} host-uuid=${HOST_ID}
+  xe message-create name="Shutdown" body="${1}" priority="${LVL_WARN}" host-uuid="${HOST_ID}"
   if [[ $? -ne 0 ]]; then
     logError "Failed to send notification to XCP-ng"
   fi
@@ -185,7 +186,7 @@ warn() {
 error() {
   logError "$1"
 
-  xe message-create name="Shutdown" body="$1" priority=${LVL_ERROR} host-uuid=${HOST_ID}
+  xe message-create name="Shutdown" body="${1}" priority="${LVL_ERROR}" host-uuid="${HOST_ID}"
   if [[ $? -ne 0 ]]; then
     logError "Failed to send notification to XCP-ng"
   fi
@@ -200,14 +201,15 @@ SHUTDOWN_ALL="all"
 LVL_ERROR=1
 LVL_WARN=2
 LVL_INFO=3
+# shellcheck disable=SC2034 # Not used
 LVL_DEBUG=4
+# shellcheck disable=SC2034 # Not used
 LVL_TRACE=5
 
 ###########################
 ###### Startup logic ######
 ###########################
 SH_ARGS=("$@")
-SH_CWD=$(pwd)
 SH_ME="$(basename "${BASH_SOURCE[0]}")"
 
 # Get directory of this script
@@ -222,7 +224,7 @@ SH_ROOT=$(cd -P "$(dirname "${SH_SOURCE}")" >/dev/null 2>&1 && pwd)
 SH_ROOT=$(realpath "${SH_ROOT}/../..")
 
 # Import dependencies
-LOG_CONSOLE=0
+export LOG_CONSOLE=0
 SETUP_REPO_DIR="${SH_ROOT}/external/setup"
 if ! source "${SETUP_REPO_DIR}/external/slf4.sh/src/slf4.sh"; then
   echo "Failed to import slf4.sh"

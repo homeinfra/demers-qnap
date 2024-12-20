@@ -128,7 +128,7 @@ setup_host_hardware() {
 
 setup_ups() {
   # Prepare configuration
-  local nut_script="${DQ_ROOT}/src/lifecycle/nut_handler.sh"
+  local nut_script="${DQ_ROOT}/src/lifecycle/nut_handler"
   local driver_file="${DQ_ROOT}/data/ups/ups.conf"
   local daemon_file="${DQ_ROOT}/data/ups/upsd.conf"
   local user_file="${DQ_ROOT}/data/ups/upsd.users"
@@ -189,18 +189,28 @@ setup_ups() {
   local monitor_content
   local scheduler_content
 
+  # shellcheck disable=SC2034
   driver_content=$(cat "${driver_file}")
+  # shellcheck disable=SC2034
   daemon_content=$(cat "${daemon_file}")
+  # shellcheck disable=SC2034
   user_content=$(cat "${user_file}")
+  # shellcheck disable=SC2034
   monitor_content=$(cat "${monitor_file}")
+  # shellcheck disable=SC2034
   scheduler_content=$(cat "${scheduler_file}")
 
   # Configure NUT by making dynamic repplaces for the @value@ tags in the files
+  # shellcheck disable=SC2140
   monitor_content="${monitor_content//"@NOTIFY_CMD@"/"${nut_script_dest} event -- "}"
+  # shellcheck disable=SC2140
   monitor_content="${monitor_content//"@SHUTDOWN_CMD@"/"${nut_script_dest} shutdown"}"
 
+  # shellcheck disable=SC2140
   scheduler_content="${scheduler_content//"@SCHED_CMD@"/"${nut_script_dest} timer -- "}"
+  # shellcheck disable=SC2140
   scheduler_content="${scheduler_content//"@PIPEFN@"/"/var/run/nut/upssched.pipe"}"
+  # shellcheck disable=SC2140
   scheduler_content="${scheduler_content//"@LOCKFN@"/"/var/run/nut/upssched.lock"}"
 
   # Configure NUT
@@ -293,10 +303,6 @@ REBOOT_REQUIRED=0
 ###### Startup logic ######
 ###########################
 
-DQ_ARGS=("$@")
-DQ_CWD=$(pwd)
-DQ_ME="$(basename "${BASH_SOURCE[0]}")"
-
 # Get directory of this script
 # https://stackoverflow.com/a/246128
 DQ_SOURCE=${BASH_SOURCE[0]}
@@ -333,8 +339,8 @@ fi
 if ! source "${XE_LIB_DIR}/src/xe_network.sh"; then
   logFatal "Failed to import xe_network.sh"
 fi
-if ! source "${DQ_ROOT}/src/hal/identity.sh"; then
-  logFatal "Failed to import identity.sh"
+if ! source "${DQ_ROOT}/src/hal/identity"; then
+  logFatal "Failed to import identity"
 fi
 if ! source "${DQ_ROOT}/src/aq113c/aq113c.sh"; then
   logFatal "Failed to import aq113c.sh"
@@ -342,17 +348,17 @@ fi
 if ! source "${DQ_ROOT}/src/hal/sensors.sh"; then
   logFatal "Failed to import sensors.sh"
 fi
-if ! source "${DQ_ROOT}/src/hal/qnap_hal.sh"; then
-  logFatal "Failed to import qnap_hal.sh"
+if ! source "${DQ_ROOT}/src/hal/qnap_hal"; then
+  logFatal "Failed to import qnap_hal"
 fi
 if ! source "${DQ_ROOT}/src/email/email.sh"; then
   logFatal "Failed to import email.sh"
 fi
-if ! source "${DQ_ROOT}/src/raid/mdadm.sh"; then
-  logFatal "Failed to import mdadm.sh"
+if ! source "${DQ_ROOT}/src/raid/mdadm"; then
+  logFatal "Failed to import mdadm"
 fi
-if ! source "${DQ_ROOT}/src/raid/smartd.sh"; then
-  logFatal "Failed to import smartd.sh"
+if ! source "${DQ_ROOT}/src/raid/smartd"; then
+  logFatal "Failed to import smartd"
 fi
 if ! source "${DQ_ROOT}/src/lifecycle/daemon.sh"; then
   logFatal "Failed to import daemon.sh"

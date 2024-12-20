@@ -89,8 +89,8 @@ qnap_hal_install() {
   fi
 
   # Install symbolic links for qnap_hal.sh and qhal.py
-  if ! ln -sf "${QN_ROOT}/src/hal/qnap_hal.sh" "${HOME}/bin/qnap_hal"; then
-    logError "Failed to create symbolic link for qnap_hal.sh"
+  if ! ln -sf "${QN_ROOT}/src/hal/qnap_hal" "${HOME}/bin/qnap_hal"; then
+    logError "Failed to create symbolic link for qnap_hal"
     return 1
   fi
   if ! ln -sf "${QN_ROOT}/src/hal/qhal.py" "${HOME}/bin/qhal"; then
@@ -136,11 +136,11 @@ qnap_hal_init() {
   fi
 
   if [[ $ret_value -eq 0 ]]; then
-    qnap_hal_invoke ${cmd[@]}
+    qnap_hal_invoke "${cmd[@]}"
     if [[ $? -eq 0 ]]; then
       sleep 1
       if [[ $? -eq 0 ]]; then
-        qnap_hal_invoke ${cmd[@]}
+        qnap_hal_invoke "${cmd[@]}"
         if [[ $? -eq 0 ]]; then
           sleep 10
           if [[ $? -ne 0 ]]; then
@@ -162,13 +162,13 @@ qnap_hal_init() {
   fi
 
   # Clean up (best effort)
-  kill -9 $(pidof hal_daemon)
+  kill -9 "$(pidof hal_daemon)"
   return $ret_value
 }
 
 # Wrapper to call a command on the HAL
 # We like to call the buzzer, for example:
-# ./src/hal/qnap_hal.sh --se_buzzer enc_id=0,mode=9
+# ./src/hal/qnap_hal --se_buzzer enc_id=0,mode=9
 #
 # The different sounds we can make are described here:
 # https://sandrotosi.blogspot.com/2021/05/qnap-control-lcd-panel-and-speaker.html
@@ -184,8 +184,8 @@ qnap_hal_invoke() {
   local install_root="${BIN_DIR}/hal"
   local res
 
-  logTrace "Executing on the QNAP HAL: $@"
-  PATH=$PATH:/bin:/sbin chroot "${install_root}" $@
+  logTrace "Executing on the QNAP HAL: $*"
+  PATH=$PATH:/bin:/sbin chroot "${install_root}" "$@"
   res=$?
   logTrace "Exceution completed: $res"
 
@@ -195,10 +195,7 @@ qnap_hal_invoke() {
 ###########################
 ###### Startup logic ######
 ###########################
-
 QN_ARGS=("$@")
-QN_CWD=$(pwd)
-QN_ME="$(basename "${BASH_SOURCE[0]}")"
 
 # Get directory of this script
 # https://stackoverflow.com/a/246128

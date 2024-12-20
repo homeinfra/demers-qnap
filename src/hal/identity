@@ -180,10 +180,6 @@ id_identify() {
 ###### Startup logic ######
 ###########################
 
-ID_ARGS=("$@")
-ID_CWD=$(pwd)
-ID_ME="$(basename "${BASH_SOURCE[0]}")"
-
 # Get directory of this script
 # https://stackoverflow.com/a/246128
 ID_SOURCE=${BASH_SOURCE[0]}
@@ -213,6 +209,7 @@ elif [[ ${BASH_SOURCE[0]} != "${0}" ]]; then
   # This script was sourced
   :
 else
+  declare result
   if id_identify result; then
     echo "${result}"
   else

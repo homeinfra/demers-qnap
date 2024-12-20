@@ -5,7 +5,7 @@ Configuration code for the Demers machine called qnap. The hardware is actually 
 ## Installation
 The server can be configured by calling this one-liner:
 ```bash
-wget -qO- 'https://raw.githubusercontent.com/jeremfg/setup/refs/heads/feature/linux-setup/src/setup_git.sh' | bash -s -- git@github.com:homeinfra/demers-qnap.git feature/initial -- ./src/setup.sh
+wget -qO- 'https://raw.githubusercontent.com/jeremfg/setup/refs/heads/feature/linux-setup/src/setup_git.sh' | bash -s -- git@github.com:homeinfra/demers-qnap.git feature/initial -- ./src/setup
 ```
 
 ## Hardware

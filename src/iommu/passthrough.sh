@@ -50,9 +50,6 @@ passthrough_configure() {
 ###########################
 ###### Startup logic ######
 ###########################
-PI_ARGS=("$@")
-PI_CWD=$(pwd)
-PI_ME="$(basename "${BASH_SOURCE[0]}")"
 
 # Get directory of this script
 # https://stackoverflow.com/a/246128

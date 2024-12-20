@@ -10,7 +10,7 @@ startup_main() {
   hardware_init
 
   # Startup complete
-  if ! ${HOME_BIN}/qhal beep Online; then
+  if ! "${HOME_BIN}/qhal" beep Online; then
     error "Failed to buzz indicating startup complete"
   fi
 
@@ -25,13 +25,13 @@ hardware_init() {
   fi
 
   # Start HAL daemon
-  if ! ${HOME_BIN}/qhal start; then
+  if ! "${HOME_BIN}/qhal" start; then
     error "Failed to start QNAP HAL"
   fi
 
   # Register USB Copy Button to perform a total shutdown
   local sh_cmd="${ST_ROOT}/src/lifecycle/shutdown.sh"
-  if ! ${HOME_BIN}/qhal button USB_Copy -- ${sh_cmd} -e all; then
+  if ! "${HOME_BIN}/qhal" button USB_Copy -- "${sh_cmd}" -e all; then
     error "Failed to register USB Copy button for full shutdown"
   else
     logInfo "Registered USB Copy button for full shutdown"
@@ -42,7 +42,7 @@ startup_init() {
   if ! command -v xe &> /dev/null; then
     logError "XCP-ng tools not found"
     return 1
-  elif ! res=$(xe host-list name-label=$(hostname) --minimal); then
+  elif ! res=$(xe host-list name-label="$(hostname)" --minimal); then
     logError "Failed to get host"
     exit 1
   elif [[ -z "${res}" ]]; then
@@ -68,7 +68,7 @@ startup_init() {
 info() {
   logInfo "$1"
 
-  xe message-create name="Startup" body="$1" priority=${LVL_INFO} host-uuid=${HOST_ID}
+  xe message-create name="Startup" body="${1}" priority="${LVL_INFO}" host-uuid="${HOST_ID}"
   if [[ $? -ne 0 ]]; then
     logError "Failed to send notification to XCP-ng"
   fi
@@ -77,7 +77,7 @@ info() {
 warn() {
   logWarn "$1"
 
-  xe message-create name="Startup" body="$1" priority=${LVL_WARN} host-uuid=${HOST_ID}
+  xe message-create name="Startup" body="${1}" priority="${LVL_WARN}" host-uuid="${HOST_ID}"
   if [[ $? -ne 0 ]]; then
     logError "Failed to send notification to XCP-ng"
   fi
@@ -86,7 +86,7 @@ warn() {
 error() {
   logError "$1"
 
-  xe message-create name="Startup" body="$1" priority=${LVL_ERROR} host-uuid=${HOST_ID}
+  xe message-create name="Startup" body="${1}" priority="${LVL_ERROR}" host-uuid="${HOST_ID}"
   if [[ $? -ne 0 ]]; then
     logError "Failed to send notification to XCP-ng"
   fi
@@ -98,15 +98,14 @@ error() {
 LVL_ERROR=1
 LVL_WARN=2
 LVL_INFO=3
+# shellcheck disable=SC2034
 LVL_DEBUG=4
+# shellcheck disable=SC2034
 LVL_TRACE=5
 
 ###########################
 ###### Startup logic ######
 ###########################
-ST_ARGS=("$@")
-ST_CWD=$(pwd)
-ST_ME="$(basename "${BASH_SOURCE[0]}")"
 
 # Get directory of this script
 # https://stackoverflow.com/a/246128

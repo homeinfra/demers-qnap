@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+# shellcheck shell=bash
 # SPDX-License-Identifier: MIT
 #
 # This script configures email notifications on XCP-ng
@@ -37,9 +37,6 @@ email_install() {
 ###########################
 ###### Startup logic ######
 ###########################
-EM_ARGS=("$@")
-EM_CWD=$(pwd)
-EM_ME="$(basename "${BASH_SOURCE[0]}")"
 
 # Get directory of this script
 # https://stackoverflow.com/a/246128

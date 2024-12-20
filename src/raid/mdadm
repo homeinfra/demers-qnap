@@ -207,9 +207,6 @@ md_test() {
 ###########################
 ###### Startup logic ######
 ###########################
-MD_ARGS=("$@")
-MD_CWD=$(pwd)
-MD_ME="$(basename "${BASH_SOURCE[0]}")"
 
 # Get directory of this script
 # https://stackoverflow.com/a/246128

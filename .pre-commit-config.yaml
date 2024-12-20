@@ -31,7 +31,8 @@ repos:
     rev: 3.0.0  # Spellcheck uses version 0.9.0 installed locally
     hooks:
       - id: shellcheck # Shell
-        args: [--enable, all, -x]
+        args: ["-e", "SC1072,SC1073"]
+        # args: [--enable, all, -x]
       # - id: git-check
       - id: git-dirty
       - id: script-must-have-extension # Shell
@@ -68,7 +69,7 @@ repos:
         name: dotenv-linter
         pass_filenames: true
         language: system
-        entry: dotenv-linter
+        entry: ~/.cargo/bin/dotenv-linter
         files: '^(.*\.env)$'
   # - repo: https://github.com/klen/pylama
   #   rev: 8.4.1

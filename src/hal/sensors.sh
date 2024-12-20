@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+# shellcheck shell=bash
 # SPDX-License-Identifier: MIT
 #
 # This script is used to configure the qnap sensors
@@ -57,10 +57,6 @@ sensor_detect() {
 ###########################
 ###### Startup logic ######
 ###########################
-
-SE_ARGS=("$@")
-SE_CWD=$(pwd)
-SE_ME="$(basename "${BASH_SOURCE[0]}")"
 
 # Get directory of this script
 # https://stackoverflow.com/a/246128
