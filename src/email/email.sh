@@ -18,6 +18,7 @@ email_install() {
     logError "Email setup script not found"
     return 1
   fi
+  # shellcheck disable=SC2154
   if ! BIN_DIR=${BIN_DIR} CONFIG_DIR=${CONFIG_DIR} "${email_setup_script}" configure "${client_config_src}" "${mta_config_src}"; then
     logError "Failed to configure email"
     return 1
@@ -52,10 +53,12 @@ EM_ROOT=$(realpath "${EM_ROOT}/../..")
 # Import dependencies
 SETUP_REPO_DIR="${EM_ROOT}/external/setup"
 XE_LIB_DIR="${EM_ROOT}/libs/xapi.sh"
+# shellcheck disable=SC1091
 if ! source "${SETUP_REPO_DIR}/external/slf4.sh/src/slf4.sh"; then
   echo "Failed to import slf4.sh"
   exit 1
 fi
+# shellcheck disable=SC1091
 if ! source "${XE_LIB_DIR}/src/xe_host.sh"; then
   logFatal "Failed to import xe_host.sh"
 fi

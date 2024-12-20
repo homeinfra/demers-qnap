@@ -71,10 +71,12 @@ SE_ROOT=$(realpath "${SE_ROOT}/../..")
 
 # Import dependencies
 SETUP_REPO_DIR="${SE_ROOT}/external/setup"
+# shellcheck disable=SC1091
 if ! source "${SETUP_REPO_DIR}/external/slf4.sh/src/slf4.sh"; then
   echo "Failed to import slf4.sh"
   exit 1
 fi
+# shellcheck disable=SC1091
 if ! source "${SETUP_REPO_DIR}/src/pkg.sh"; then
   logFatal "Failed to import pkg.sh"
 fi

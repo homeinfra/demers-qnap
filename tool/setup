@@ -94,10 +94,12 @@ fi
 
 # Install cargo
 if [[ -f "${HOME}/.cargo/env" ]]; then
+  # shellcheck disable=SC1091
   source "${HOME}/.cargo/env"
 fi
 if ! command -v cargo &>/dev/null; then
   echo "Installing cargo..."
+  # shellcheck disable=SC2312
   if ! curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | bash -s -- -y; then
     echo "Failed to install cargo"
     exit 1
@@ -108,6 +110,7 @@ fi
 # Install dotenv-linter
 if ! command -v dotenv-linter &>/dev/null; then
   echo "Installing dotenv-linter..."
+  # shellcheck disable=SC1091
   source "${HOME}/.cargo/env"
   if ! cargo install dotenv-linter; then
     echo "Failed to install dotenv-linter"
