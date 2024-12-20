@@ -121,18 +121,23 @@ ST_ROOT=$(realpath "${ST_ROOT}/../..")
 
 # Import dependencies
 SETUP_REPO_DIR="${ST_ROOT}/external/setup"
-source ${SETUP_REPO_DIR}/src/slf4sh.sh
-source ${SETUP_REPO_DIR}/src/config.sh
-source ${ST_ROOT}/src/hal/qnap_hal.sh
+if ! source "${SETUP_REPO_DIR}/external/slf4.sh/src/slf4.sh"; then
+  echo "Failed to import slf4.sh"
+  exit 1
+fi
+if ! source "${SETUP_REPO_DIR}/external/config.sh/src/config.sh"; then
+  logFatal "Failed to import config.sh"
+fi
+if ! source "${ST_ROOT}/src/hal/qnap_hal.sh"; then
+  logFatal "Failed to import qnap_hal.sh"
+fi
 
 if [[ -p /dev/stdin ]] && [[ -z ${BASH_SOURCE[0]} ]]; then
   # This script was piped
-  echo "ERROR: This script cannot be piped"
-  exit 1
+  logFatal "This script cannot be piped"
 elif [[ ${BASH_SOURCE[0]} != "${0}" ]]; then
   # This script was sourced
-  echo "ERROR: This script cannot be sourced"
-  exit 1
+  logFatal "This script cannot be sourced"
 else
   # This script was executed
   startup_main

@@ -34,8 +34,14 @@ MDADM_DEVICE="\${2}"
 MDADM_ARRAY="\${3}"
 
 # Import email configuration
-source "${cfg_email}"
-source "${SETUP_REPO_DIR}/src/slf4sh.sh"
+if ! source "${SETUP_REPO_DIR}/external/slf4.sh/src/slf4.sh"; then
+  echo "Failed to import slf4.sh"
+  exit 1
+fi
+if ! source "${cfg_email}"; then
+  logFatal "Failed to load email configuration"
+fi
+
 
 SEND_XCP="true"
 if ! command -v xe &>/dev/null; then
@@ -218,19 +224,24 @@ MD_ROOT=$(realpath "${MD_ROOT}/../..")
 
 # Import dependencies
 SETUP_REPO_DIR="${MD_ROOT}/external/setup"
-source ${SETUP_REPO_DIR}/src/slf4sh.sh
-source ${SETUP_REPO_DIR}/src/os.sh
-source ${SETUP_REPO_DIR}/src/config.sh
+if ! source "${SETUP_REPO_DIR}/external/slf4.sh/src/slf4.sh"; then
+  echo "Failed to import slf4.sh"
+  exit 1
+fi
+if ! source "${SETUP_REPO_DIR}/external/config.sh/src/config.sh"; then
+  logFatal "Failed to import config.sh"
+fi
+if ! source "${SETUP_REPO_DIR}/src/os.sh"; then
+  logFatal "Failed to import os.sh"
+fi
 
 if [[ -p /dev/stdin ]] && [[ -z ${BASH_SOURCE[0]} ]]; then
   # This script was piped
-  echo "ERROR: This script cannot be piped"
-  exit 1
+  logFatal "This script cannot be piped"
 elif [[ ${BASH_SOURCE[0]} != "${0}" ]]; then
   # This script was sourced
   :
 else
   # This script was executed
-  # md_configure
   md_test
 fi

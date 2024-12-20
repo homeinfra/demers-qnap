@@ -193,17 +193,18 @@ DM_ROOT=$(realpath "${DM_ROOT}/../..")
 
 # Import dependencies
 SETUP_REPO_DIR="${DM_ROOT}/external/setup"
-source ${SETUP_REPO_DIR}/src/slf4sh.sh
+if ! source "${SETUP_REPO_DIR}/external/slf4.sh/src/slf4.sh"; then
+  echo "Failed to import slf4.sh"
+  exit 1
+fi
 
 if [[ -p /dev/stdin ]] && [[ -z ${BASH_SOURCE[0]} ]]; then
   # This script was piped
-  echo "ERROR: This script cannot be piped"
-  exit 1
+  logFatal "This script cannot be piped"
 elif [[ ${BASH_SOURCE[0]} != "${0}" ]]; then
   # This script was sourced
   :
 else
   # This script was executed
-  echo "ERROR: This script cannot be executed"
-  exit 1
+  logFatal "This script cannot be executed"
 fi

@@ -213,11 +213,22 @@ QN_ROOT=$(realpath "${QN_ROOT}/../..")
 
 # Import dependencies
 SETUP_REPO_DIR="${QN_ROOT}/external/setup"
-source ${SETUP_REPO_DIR}/src/slf4sh.sh
-source ${SETUP_REPO_DIR}/src/config.sh
-source ${SETUP_REPO_DIR}/src/env.sh
-source ${SETUP_REPO_DIR}/src/pkg.sh
-source ${SETUP_REPO_DIR}/src/python.sh
+if ! source "${SETUP_REPO_DIR}/external/slf4.sh/src/slf4.sh"; then
+  echo "Failed to import slf4.sh"
+  exit 1
+fi
+if ! source "${SETUP_REPO_DIR}/src/config.sh"; then
+  logFatal "Failed to import config.sh"
+fi
+if ! source "${SETUP_REPO_DIR}/src/env.sh"; then
+  logFatal "Failed to import env.sh"
+fi
+if ! source "${SETUP_REPO_DIR}/src/pkg.sh"; then
+  logFatal "Failed to import pkg.sh"
+fi
+if ! source "${SETUP_REPO_DIR}/src/python.sh"; then
+  logFatal "Failed to import python.sh"
+fi
 
 if [[ -p /dev/stdin ]] && [[ -z ${BASH_SOURCE[0]} ]]; then
   # This script was piped

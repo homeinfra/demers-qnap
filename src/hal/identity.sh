@@ -197,7 +197,10 @@ ID_ROOT=$(realpath "${ID_ROOT}/../..")
 
 # Import dependencies
 SETUP_REPO_DIR="${ID_ROOT}/external/setup"
-source ${SETUP_REPO_DIR}/src/slf4sh.sh
+if ! source "${SETUP_REPO_DIR}/external/slf4.sh/src/slf4.sh"; then
+  echo "Failed to source slf4.sh"
+  exit 1
+fi
 
 if [[ -p /dev/stdin ]] && [[ -z ${BASH_SOURCE[0]} ]]; then
   # This script was piped

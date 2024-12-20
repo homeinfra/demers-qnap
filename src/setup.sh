@@ -310,23 +310,56 @@ DQ_ROOT=$(realpath "${DQ_ROOT}/..")
 
 # Import dependencies
 SETUP_REPO_DIR="${DQ_ROOT}/external/setup"
-XE_LIB_DIR="${DQ_ROOT}/libs/xenapi"
-source ${SETUP_REPO_DIR}/src/slf4sh.sh
-source ${SETUP_REPO_DIR}/src/config.sh
-source ${SETUP_REPO_DIR}/src/git.sh
-source ${SETUP_REPO_DIR}/src/sops.sh
-source ${SETUP_REPO_DIR}/src/age.sh
-source ${SETUP_REPO_DIR}/src/nut.sh
-source ${XE_LIB_DIR}/src/xe_network.sh
-source ${DQ_ROOT}/src/hal/identity.sh
-source ${DQ_ROOT}/src/aq113c/aq113c.sh
-source ${DQ_ROOT}/src/hal/sensors.sh
-source ${DQ_ROOT}/src/hal/qnap_hal.sh
-source ${DQ_ROOT}/src/email/email.sh
-source ${DQ_ROOT}/src/raid/mdadm.sh
-source ${DQ_ROOT}/src/raid/smartd.sh
-source ${DQ_ROOT}/src/lifecycle/daemon.sh
-source ${DQ_ROOT}/src/iommu/passthrough.sh
+XE_LIB_DIR="${DQ_ROOT}/external/xapi.sh"
+if ! source "${SETUP_REPO_DIR}/external/slf4.sh/src/slf4.sh"; then
+  echo "Failed to import slf4.sh"
+  exit 1
+fi
+if ! source "${SETUP_REPO_DIR}/external/config.sh/src/config.sh"; then
+  logFatal "Failed to import config.sh"
+fi
+if ! source "${SETUP_REPO_DIR}/src/git.sh"; then
+  logFatal "Failed to import git.sh"
+fi
+if ! source "${SETUP_REPO_DIR}/src/sops.sh"; then
+  logFatal "Failed to import sops.sh"
+fi
+if ! source "${SETUP_REPO_DIR}/src/age.sh"; then
+  logFatal "Failed to import age.sh"
+fi
+if ! source "${SETUP_REPO_DIR}/src/nut.sh"; then
+  logFatal "Failed to import nut.sh"
+fi
+if ! source "${XE_LIB_DIR}/src/xe_network.sh"; then
+  logFatal "Failed to import xe_network.sh"
+fi
+if ! source "${DQ_ROOT}/src/hal/identity.sh"; then
+  logFatal "Failed to import identity.sh"
+fi
+if ! source "${DQ_ROOT}/src/aq113c/aq113c.sh"; then
+  logFatal "Failed to import aq113c.sh"
+fi
+if ! source "${DQ_ROOT}/src/hal/sensors.sh"; then
+  logFatal "Failed to import sensors.sh"
+fi
+if ! source "${DQ_ROOT}/src/hal/qnap_hal.sh"; then
+  logFatal "Failed to import qnap_hal.sh"
+fi
+if ! source "${DQ_ROOT}/src/email/email.sh"; then
+  logFatal "Failed to import email.sh"
+fi
+if ! source "${DQ_ROOT}/src/raid/mdadm.sh"; then
+  logFatal "Failed to import mdadm.sh"
+fi
+if ! source "${DQ_ROOT}/src/raid/smartd.sh"; then
+  logFatal "Failed to import smartd.sh"
+fi
+if ! source "${DQ_ROOT}/src/lifecycle/daemon.sh"; then
+  logFatal "Failed to import daemon.sh"
+fi
+if ! source "${DQ_ROOT}/src/iommu/passthrough.sh"; then
+  logFatal "Failed to import passthrough.sh"
+fi
 
 if [[ -p /dev/stdin ]] && [[ -z ${BASH_SOURCE[0]} ]]; then
   # This script was piped
@@ -334,8 +367,7 @@ if [[ -p /dev/stdin ]] && [[ -z ${BASH_SOURCE[0]} ]]; then
   exit $?
 elif [[ ${BASH_SOURCE[0]} != "${0}" ]]; then
   # This script was sourced
-  echo "ERROR: This script cannot be sourced"
-  exit 1
+  logFatal "This script cannot be sourced"
 else
   # This script was executed
   setup "${@}"

@@ -54,20 +54,22 @@ EM_ROOT=$(realpath "${EM_ROOT}/../..")
 
 # Import dependencies
 SETUP_REPO_DIR="${EM_ROOT}/external/setup"
-XE_LIB_DIR="${EM_ROOT}/libs/xenapi"
-source ${SETUP_REPO_DIR}/src/slf4sh.sh
-source ${XE_LIB_DIR}/src/xe_host.sh
+XE_LIB_DIR="${EM_ROOT}/libs/xapi.sh"
+if ! source "${SETUP_REPO_DIR}/external/slf4.sh/src/slf4.sh"; then
+  echo "Failed to import slf4.sh"
+  exit 1
+fi
+if ! source "${XE_LIB_DIR}/src/xe_host.sh"; then
+  logFatal "Failed to import xe_host.sh"
+fi
 
 if [[ -p /dev/stdin ]] && [[ -z ${BASH_SOURCE[0]} ]]; then
   # This script was piped
-  echo "ERROR: This script cannot be piped"
-  exit 1
+  logFatal "This script cannot be piped"
 elif [[ ${BASH_SOURCE[0]} != "${0}" ]]; then
   # This script was sourced
   :
 else
   # This script was executed
-  # echo "ERROR: This script cannot be executed"
-  # exit 1
-  email_install
+  logFatal "This script cannot be executed"
 fi
