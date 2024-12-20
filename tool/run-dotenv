@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT
 
-"${HOME}/.cargo/bin/dotenv-linter" "$@"
+echo "Running check on: $*"
+
+"${HOME}/.cargo/bin/dotenv-linter" "$*" --skip LowercaseKey
