@@ -61,7 +61,7 @@ qnap_hal_install() {
   local install_root="${BIN_DIR}/hal"
   local installer="${QN_ROOT}/data/hal_${QN_ID}.tar.gz"
 
-  if [[ ! -d "${install_root}" ]] || [[ -z "$( ls -A "${install_root}" )" ]] ; then
+  if [[ ! -d "${install_root}" ]] || [[ -z "$(ls -A "${install_root}" || true)" ]]; then
     logTrace "Installing HAL for ${QN_ID}"
 
     if [[ ! -f "${installer}" ]]; then
@@ -98,7 +98,7 @@ qnap_hal_install() {
     return 1
   fi
 
-  return $res
+  return "${res}"
 }
 
 qnap_hal_init() {
@@ -106,44 +106,35 @@ qnap_hal_init() {
   local install_root="${BIN_DIR}/hal"
   local cmd=("hal_daemon" "-f")
 
-  umount "${install_root}/tmp" >/dev/null 2>&1
-  if [[ $? -ne 0 ]]; then
+  if ! umount "${install_root}/tmp" >/dev/null 2>&1; then
     logWarn "Failed to unmount ${install_root}/tmp"
   fi
-  umount "${install_root}/var" >/dev/null 2>&1
-  if [[ $? -ne 0 ]]; then
+  if ! umount "${install_root}/var" >/dev/null 2>&1; then
     logWarn "Failed to unmount ${install_root}/var"
   fi
 
-  mount -o size=512K -t tmpfs none "${install_root}/var"
-  if [[ $? -ne 0 ]]; then
+  if ! mount -o size=512K -t tmpfs none "${install_root}/var"; then
     logError "Failed to mount ${install_root}/var"
     ret_value=1
   fi
-  if [[ $ret_value -eq 0 ]]; then
-    mkdir -p "${install_root}"/var/{log,lock}
-    if [[ $? -ne 0 ]]; then
+  if [[ ${ret_value} -eq 0 ]]; then
+    if ! mkdir -p "${install_root}"/var/{log,lock}; then
       logError "Failed to create ${install_root}/var/{log,lock}"
       ret_value=1
     fi
   fi
-  if [[ $ret_value -eq 0 ]]; then
-    mount -o size=128K -t tmpfs none "${install_root}/tmp"
-    if [[ $? -ne 0 ]]; then
+  if [[ ${ret_value} -eq 0 ]]; then
+    if ! mount -o size=128K -t tmpfs none "${install_root}/tmp"; then
       logError "Failed to mount ${install_root}/tmp"
       ret_value=1
     fi
   fi
 
-  if [[ $ret_value -eq 0 ]]; then
-    qnap_hal_invoke "${cmd[@]}"
-    if [[ $? -eq 0 ]]; then
-      sleep 1
-      if [[ $? -eq 0 ]]; then
-        qnap_hal_invoke "${cmd[@]}"
-        if [[ $? -eq 0 ]]; then
-          sleep 10
-          if [[ $? -ne 0 ]]; then
+  if [[ ${ret_value} -eq 0 ]]; then
+    if qnap_hal_invoke "${cmd[@]}"; then
+      if sleep 1; then
+        if qnap_hal_invoke "${cmd[@]}"; then
+          if sleep 10; then
             logError "Failed to wait for hal_daemon to start"
             ret_value=1
           fi
@@ -162,8 +153,8 @@ qnap_hal_init() {
   fi
 
   # Clean up (best effort)
-  kill -9 "$(pidof hal_daemon)"
-  return $ret_value
+  kill -9 "$(pidof hal_daemon || true)"
+  return "${ret_value}"
 }
 
 # Wrapper to call a command on the HAL
@@ -185,11 +176,11 @@ qnap_hal_invoke() {
   local res
 
   logTrace "Executing on the QNAP HAL: $*"
-  PATH=$PATH:/bin:/sbin chroot "${install_root}" "$@"
+  PATH=${PATH}:/bin:/sbin chroot "${install_root}" "$@"
   res=$?
-  logTrace "Exceution completed: $res"
+  logTrace "Exceution completed: ${res}"
 
-  return $res
+  return "${res}"
 }
 
 ###########################
@@ -210,19 +201,24 @@ QN_ROOT=$(realpath "${QN_ROOT}/../..")
 
 # Import dependencies
 SETUP_REPO_DIR="${QN_ROOT}/external/setup"
+# shellcheck disable=SC1091
 if ! source "${SETUP_REPO_DIR}/external/slf4.sh/src/slf4.sh"; then
   echo "Failed to import slf4.sh"
   exit 1
 fi
+# shellcheck disable=SC1091
 if ! source "${SETUP_REPO_DIR}/src/config.sh"; then
   logFatal "Failed to import config.sh"
 fi
+# shellcheck disable=SC1091
 if ! source "${SETUP_REPO_DIR}/src/env.sh"; then
   logFatal "Failed to import env.sh"
 fi
+# shellcheck disable=SC1091
 if ! source "${SETUP_REPO_DIR}/src/pkg.sh"; then
   logFatal "Failed to import pkg.sh"
 fi
+# shellcheck disable=SC1091
 if ! source "${SETUP_REPO_DIR}/src/python.sh"; then
   logFatal "Failed to import python.sh"
 fi

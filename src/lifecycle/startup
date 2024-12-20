@@ -10,6 +10,7 @@ startup_main() {
   hardware_init
 
   # Startup complete
+  # shellcheck disable=SC2154
   if ! "${HOME_BIN}/qhal" beep Online; then
     error "Failed to buzz indicating startup complete"
   fi
@@ -39,10 +40,10 @@ hardware_init() {
 }
 
 startup_init() {
-  if ! command -v xe &> /dev/null; then
+  if ! command -v xe &>/dev/null; then
     logError "XCP-ng tools not found"
     return 1
-  elif ! res=$(xe host-list name-label="$(hostname)" --minimal); then
+  elif ! res=$(xe host-list name-label="$(hostname || true)" --minimal); then
     logError "Failed to get host"
     exit 1
   elif [[ -z "${res}" ]]; then
@@ -60,6 +61,7 @@ startup_init() {
   if ! config_load "${ST_ROOT}/data/local.env"; then
     logError "Failed to load local configuration"
   fi
+  # shellcheck disable=SC2154
   if ! config_load "${CONFIG_DIR}/email.env"; then
     logError "Failed to load QNAP configuration"
   fi
@@ -68,8 +70,7 @@ startup_init() {
 info() {
   logInfo "$1"
 
-  xe message-create name="Startup" body="${1}" priority="${LVL_INFO}" host-uuid="${HOST_ID}"
-  if [[ $? -ne 0 ]]; then
+  if ! xe message-create name="Startup" body="${1}" priority="${LVL_INFO}" host-uuid="${HOST_ID}"; then
     logError "Failed to send notification to XCP-ng"
   fi
 }
@@ -77,8 +78,7 @@ info() {
 warn() {
   logWarn "$1"
 
-  xe message-create name="Startup" body="${1}" priority="${LVL_WARN}" host-uuid="${HOST_ID}"
-  if [[ $? -ne 0 ]]; then
+  if ! xe message-create name="Startup" body="${1}" priority="${LVL_WARN}" host-uuid="${HOST_ID}"; then
     logError "Failed to send notification to XCP-ng"
   fi
 }
@@ -86,8 +86,7 @@ warn() {
 error() {
   logError "$1"
 
-  xe message-create name="Startup" body="${1}" priority="${LVL_ERROR}" host-uuid="${HOST_ID}"
-  if [[ $? -ne 0 ]]; then
+  if ! xe message-create name="Startup" body="${1}" priority="${LVL_ERROR}" host-uuid="${HOST_ID}"; then
     logError "Failed to send notification to XCP-ng"
   fi
 }
@@ -120,13 +119,16 @@ ST_ROOT=$(realpath "${ST_ROOT}/../..")
 
 # Import dependencies
 SETUP_REPO_DIR="${ST_ROOT}/external/setup"
+# shellcheck disable=SC1091
 if ! source "${SETUP_REPO_DIR}/external/slf4.sh/src/slf4.sh"; then
   echo "Failed to import slf4.sh"
   exit 1
 fi
+# shellcheck disable=SC1091
 if ! source "${SETUP_REPO_DIR}/external/config.sh/src/config.sh"; then
   logFatal "Failed to import config.sh"
 fi
+# shellcheck disable=SC1091
 if ! source "${ST_ROOT}/src/hal/qnap_hal.sh"; then
   logFatal "Failed to import qnap_hal.sh"
 fi

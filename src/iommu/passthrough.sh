@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+# shellcheck shell=bash
 # SPDX-License-Identifier: MIT
 #
 # Configures PCI passthrough for peripherals that will be passed through VMs
@@ -17,7 +17,7 @@ passthrough_configure() {
   local pci_array
   local IFS=','
   # Read the input string into an array
-  read -ra pci_array <<< "$QN_STORAGE_PASS_THROUGH"
+  read -ra pci_array <<<"${QN_STORAGE_PASS_THROUGH}"
   for pci in "${pci_array[@]}"; do
     local desc
     desc=$(lspci -s "${pci}")
@@ -64,10 +64,12 @@ PI_ROOT=$(realpath "${PI_ROOT}/../..")
 
 # Import dependencies
 SETUP_REPO_DIR="${PI_ROOT}/external/setup"
+# shellcheck disable=SC1091
 if ! source "${SETUP_REPO_DIR}/external/slf4.sh/src/slf4.sh"; then
   echo "Failed to import slf4.sh"
   exit 1
 fi
+# shellcheck disable=SC1091
 if ! source "${SETUP_REPO_DIR}/external/config.sh/src/config.sh"; then
   echo "Failed to import config.sh"
   exit 1

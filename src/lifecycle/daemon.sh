@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+# shellcheck shell=bash
 # SPDX-License-Identifier: MIT
 #
 # This script configures a deamon for startup and shutdown logic
@@ -38,7 +38,7 @@ ${res}
 EOF
       return 1
     fi
-  else 
+  else
     logError "Expected some output from listing inhibitors"
     return 1
   fi
@@ -53,7 +53,7 @@ EOF
     return 1
   elif [[ "${_value}" == "ignore" ]]; then
     logInfo "Expected value when it's never been configured on XCP-ng"
-  else [[ "${_value}" == "poweroff" ]]
+  elif [[ "${_value}" == "poweroff" ]]; then
     logInfo "Power button is already configured to poweroff."
     return 0
   fi
@@ -125,8 +125,7 @@ deamon_configure() {
         logError "Failed to remove the existing service"
         return 1
       fi
-      echo "${_content}" > "${service_file_ist}"
-      if [[ $? -ne 0 ]]; then
+      if ! echo "${_content}" >"${service_file_ist}"; then
         logError "Failed to configure the service"
         return 1
       else
@@ -134,8 +133,7 @@ deamon_configure() {
       fi
     fi
   else
-    echo "${_content}" > "${service_file_ist}"
-    if [[ $? -ne 0 ]]; then
+    if ! echo "${_content}" >"${service_file_ist}"; then
       logError "Failed to configure the service"
       return 1
     else
@@ -151,7 +149,7 @@ deamon_configure() {
       logDebug "systemd daemon reloaded"
     fi
   fi
-  
+
   # Make sure the service is enabled
   if ! systemctl is-enabled --quiet "$(basename "${service_file_ist}")"; then
     if ! systemctl enable "$(basename "${service_file_ist}")"; then
@@ -194,6 +192,7 @@ DM_ROOT=$(realpath "${DM_ROOT}/../..")
 
 # Import dependencies
 SETUP_REPO_DIR="${DM_ROOT}/external/setup"
+# shellcheck disable=SC1091
 if ! source "${SETUP_REPO_DIR}/external/slf4.sh/src/slf4.sh"; then
   echo "Failed to import slf4.sh"
   exit 1

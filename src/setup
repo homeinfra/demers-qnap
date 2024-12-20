@@ -164,7 +164,7 @@ setup_ups() {
   # Install script
   local nut_script_dest="${BIN_DIR}/nut_handler"
   if [[ -L "${nut_script_dest}" ]]; then
-    if [[ "$(readlink "${nut_script_dest}")" == "${nut_script}" ]]; then
+    if [[ "$(readlink "${nut_script_dest}" || true)" == "${nut_script}" ]]; then
       logInfo "${nut_script} already symlinked"
     else
       logError "${nut_script} is not symlinked to ${nut_script_dest}"
@@ -227,6 +227,7 @@ validate_hardware() {
   # Validate network interfaces
   local macs=()
   local nic
+  # shellcheck disable=SC2154
   for nic in ${NICS}; do
     nic="${nic}_MAC"
     if [[ -n "${!nic}" ]]; then
@@ -250,6 +251,7 @@ validate_hardware() {
 check_system() {
   local name
   if id_identify name; then
+    # shellcheck disable=SC2154
     if [[ "${name}" == "${QN_NAME}" ]]; then
       return 0
     fi
@@ -289,7 +291,7 @@ local_xcp_config() {
   #TODO: Local ISO storage
 
   #TODO: Local VM storage
-  
+
   #TODO: NetData agent
 
   return 0
@@ -317,25 +319,32 @@ DQ_ROOT=$(realpath "${DQ_ROOT}/..")
 # Import dependencies
 SETUP_REPO_DIR="${DQ_ROOT}/external/setup"
 XE_LIB_DIR="${DQ_ROOT}/external/xapi.sh"
+# shellcheck disable=SC1091
 if ! source "${SETUP_REPO_DIR}/external/slf4.sh/src/slf4.sh"; then
   echo "Failed to import slf4.sh"
   exit 1
 fi
+# shellcheck disable=SC1091
 if ! source "${SETUP_REPO_DIR}/external/config.sh/src/config.sh"; then
   logFatal "Failed to import config.sh"
 fi
+# shellcheck disable=SC1091
 if ! source "${SETUP_REPO_DIR}/src/git.sh"; then
   logFatal "Failed to import git.sh"
 fi
+# shellcheck disable=SC1091
 if ! source "${SETUP_REPO_DIR}/src/sops.sh"; then
   logFatal "Failed to import sops.sh"
 fi
+# shellcheck disable=SC1091
 if ! source "${SETUP_REPO_DIR}/src/age.sh"; then
   logFatal "Failed to import age.sh"
 fi
+# shellcheck disable=SC1091
 if ! source "${SETUP_REPO_DIR}/src/nut.sh"; then
   logFatal "Failed to import nut.sh"
 fi
+# shellcheck disable=SC1091
 if ! source "${XE_LIB_DIR}/src/xe_network.sh"; then
   logFatal "Failed to import xe_network.sh"
 fi

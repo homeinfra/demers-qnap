@@ -22,7 +22,8 @@ md_configure() {
 
   # Script to execute on MDADM events
   local file
-  file=$(cat <<EOF
+  file=$(
+    cat <<EOF
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT
 #
@@ -154,12 +155,10 @@ EOF
 
   local mdadm_file="${BIN_DIR}/mdadm_event"
   logInfo "Installing mdadm event script"
-  echo "${file}" > "${mdadm_file}"
-  if [[ $? -ne 0 ]]; then
+  if ! echo "${file}" >"${mdadm_file}"; then
     logWarn "Failed to install mdadm event script"
   fi
-  chmod +x "${mdadm_file}"
-  if [[ $? -ne 0 ]]; then
+  if ! chmod +x "${mdadm_file}"; then
     logWarn "Failed to make mdadm event script executable"
   fi
 
@@ -167,8 +166,7 @@ EOF
   local cfg_file="/etc/mdadm.conf"
   if [[ ! -f "${cfg_file}" ]]; then
     logWarn "MDADM configuration file not found: ${cfg_file}. Creating one..."
-    mdadm --detail --scan > ${cfg_file}
-    if [[ $? -ne 0 ]]; then
+    if ! mdadm --detail --scan >"${cfg_file}"; then
       logError "Failed to generate MDADM configuration file: ${cfg_file}"
       return 1
     fi
@@ -179,10 +177,12 @@ EOF
   fi
 
   # Add email configurations
+  # shellcheck disable=SC2154
   if ! os_add_config "${cfg_file}" "MAILADDR ${SYSADMIN}"; then
     logError "Failed to add dest email to ${cfg_file}"
     return 1
   fi
+  # shellcheck disable=SC2154
   if ! os_add_config "${cfg_file}" "MAILFROM ${SENDER}"; then
     logError "Failed to add from email to ${cfg_file}"
     return 1
@@ -196,8 +196,7 @@ EOF
 }
 
 md_test() {
-  mdadm --monitor --scan --test
-  if [[ $? -ne 0 ]]; then
+  if ! mdadm --monitor --scan --test; then
     logError "Failed to test MDADM monitoring"
     return 1
   fi
@@ -221,13 +220,16 @@ MD_ROOT=$(realpath "${MD_ROOT}/../..")
 
 # Import dependencies
 SETUP_REPO_DIR="${MD_ROOT}/external/setup"
+# shellcheck disable=SC1091
 if ! source "${SETUP_REPO_DIR}/external/slf4.sh/src/slf4.sh"; then
   echo "Failed to import slf4.sh"
   exit 1
 fi
+# shellcheck disable=SC1091
 if ! source "${SETUP_REPO_DIR}/external/config.sh/src/config.sh"; then
   logFatal "Failed to import config.sh"
 fi
+# shellcheck disable=SC1091
 if ! source "${SETUP_REPO_DIR}/src/os.sh"; then
   logFatal "Failed to import os.sh"
 fi

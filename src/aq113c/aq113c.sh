@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+# shellcheck shell=bash
 # SPDX-License-Identifier: MIT
 #
 # This script installs drivers and configures the AQ113C device (10 GBe NIC)
@@ -24,7 +24,7 @@ aq113c_install() {
     return 1
   fi
 
-  local $res
+  local res
   # Find rpm file
   local rpm_file
   rpm_file=$(find . -maxdepth 1 -type f -name "*.rpm")
@@ -34,7 +34,7 @@ aq113c_install() {
     # Check if already installed
     local package_name
     package_name=$(rpm -qp --queryformat '%{NAME}' "${rpm_file}")
-    if rpm -q "${package_name}" > /dev/null 2>&1; then
+    if rpm -q "${package_name}" >/dev/null 2>&1; then
       res=0
     else
       # First, make sure the dependencies are installed
@@ -57,8 +57,8 @@ aq113c_install() {
     res=1
   fi
 
-  popd &>/dev/null
-  return 0
+  popd &>/dev/null || true
+  return "${res}"
 }
 
 # Download AQ113C drivers
@@ -91,7 +91,7 @@ aq113c_download() {
     workspace=$(find "${BIN_DIR}" -maxdepth 1 -type d -regex ".*Marvell.*${AQ_VERSION}.*")
     if [[ -n "${workspace}" ]]; then
       logInfo "Found existing workspace: ${workspace}"
-      eval "$_path='${workspace}'"
+      eval "${_path}='${workspace}'"
       return 0
     fi
   fi
@@ -123,14 +123,13 @@ aq113c_download() {
   # Look in the extracted location
   workspace=$(find "${BIN_DIR}" -maxdepth 1 -type d -regex ".*Marvell.*${AQ_VERSION}.*")
   if [[ -n "${workspace}" ]]; then
-    workspace="${workspace}"
     logInfo "Found existing workspace: ${workspace}"
   else
     logError "Failed to find the extracted workspace"
     return 1
   fi
-  
-  eval "$_path='${workspace}'"
+
+  eval "${_path}='${workspace}'"
   return 0
 }
 
@@ -154,13 +153,16 @@ AQ_ROOT=$(realpath "${AQ_ROOT}/../..")
 
 # Import dependencies
 SETUP_REPO_DIR="${AQ_ROOT}/external/setup"
+# shellcheck disable=SC1091
 if ! source "${SETUP_REPO_DIR}/external/slf4.sh/src/slf4.sh"; then
   echo "Failed to import slf4.sh"
   exit 1
 fi
+# shellcheck disable=SC1091
 if ! source "${SETUP_REPO_DIR}/src/git.sh"; then
   logFatal "Failed to import git.sh"
 fi
+# shellcheck disable=SC1091
 if ! source "${SETUP_REPO_DIR}/src/pkg.sh"; then
   logFatal "Failed to import pkg.sh"
 fi

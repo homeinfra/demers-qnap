@@ -7,7 +7,7 @@
 ## SMARTD CONFIG ##
 ###################
 # See: https://linux.die.net/man/5/smartd.conf
-# 
+#
 # Enable common directives
 # Skip if asleep, up to 4 times
 # Supress messages when skipped
@@ -31,10 +31,11 @@ sd_configure() {
     logError "Failed to load email configuration"
     return 1
   fi
-  
+
   # Script to execute on SMART events
   local file
-  file=$(cat <<EOF
+  file=$(
+    cat <<EOF
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT
 #
@@ -168,17 +169,15 @@ else
 fi
 
 EOF
-)
+  )
 
   # There's a bug if the filename contains a dot: https://askubuntu.com/a/1058433
   local smart_file="${BIN_DIR}/smartd_event"
   logInfo "Installing SMART event script"
-  echo "${file}" > "${smart_file}"
-  if [[ $? -ne 0 ]]; then
+  if ! echo "${file}" >"${smart_file}"; then
     logWarn "Failed to install smartd event script"
   fi
-  chmod +x "${smart_file}"
-  if [[ $? -ne 0 ]]; then
+  if ! chmod +x "${smart_file}"; then
     logWarn "Failed to make smartd event script executable"
   fi
 
@@ -194,13 +193,14 @@ EOF
     logWarn "smartd configuration was not found"
   fi
 
+  # shellcheck disable=SC2154
   local cfg_line="${SD_SMARTD_CONF} -m ${SYSADMIN} -M exec ${smart_file}"
   if ! grep -q "^${cfg_line}\$" "${cfg_file}"; then
     if grep -q "^DEVICESCAN.*" "${cfg_file}"; then
       sed -i "s=^DEVICESCAN.*=${cfg_line}=" "${cfg_file}"
       logInfo "Updated smartd configuration"
     else
-      echo "${cfg_line}" >> "${cfg_file}"
+      echo "${cfg_line}" >>"${cfg_file}"
       logInfo "Appended smartd configuration"
     fi
     sd_restart
@@ -212,11 +212,10 @@ EOF
 
 sd_restart() {
   logInfo "Restarting smartd..."
-  systemctl restart smartd
-  if [[ $? -ne 0 ]]; then
+  if ! systemctl restart smartd; then
     logError "Failed to restart smartd"
     return 1
-  else 
+  else
     logInfo "Restarted smartd"
   fi
   return 0
@@ -229,14 +228,12 @@ sd_test_alerts() {
   local cfg_line_orig
 
   if [[ -f "${cfg_file}" ]]; then
-    cfg_line_orig=$(grep -E "^DEVICESCAN" "${cfg_file}")
-    if [[ $? -ne 0 ]]; then
+    if ! cfg_line_orig=$(grep -E "^DEVICESCAN" "${cfg_file}"); then
       logError "Failed to read smartd configuration"
       return 1
     fi
     cfg_line="${cfg_line_orig} -M test"
-    sed -i "s=^DEVICESCAN.*=${cfg_line}=" "${cfg_file}"
-    if [[ $? -ne 0 ]]; then
+    if ! sed -i "s=^DEVICESCAN.*=${cfg_line}=" "${cfg_file}"; then
       logError "Failed to to configure samrtd for testing"
       return 1
     fi
@@ -247,17 +244,17 @@ sd_test_alerts() {
   fi
 
   logInfo "Lauching test..."
-  sd_restart
-  if [[ $? -ne 0 ]]; then
+  if ! sd_restart; then
     logWarn "Failed to restart smartd for conducting the test"
   else
     logInfo "Test successful. Restoring smartd configuration..."
   fi
-  
+
   # Restore original configuration
   local success
   sed -i "s=^DEVICESCAN.*=${cfg_line_orig}=" "${cfg_file}"
   success=$?
+  # shellcheck disable=SC2250
   if [[ $success -ne 0 ]]; then
     logError "Failed to restore smartd configuration"
   fi
@@ -266,7 +263,7 @@ sd_test_alerts() {
     success=1
   fi
 
-  return $success
+  return "${success}"
 }
 
 ###########################
@@ -286,10 +283,12 @@ SD_ROOT=$(realpath "${SD_ROOT}/../..")
 
 # Import dependencies
 SETUP_REPO_DIR="${SD_ROOT}/external/setup"
+# shellcheck disable=SC1091
 if ! source "${SETUP_REPO_DIR}/external/slf4.sh/src/slf4.sh"; then
   echo "Failed to import slf4.sh"
   exit 1
 fi
+# shellcheck disable=SC1091
 if ! source "${SETUP_REPO_DIR}/external/config.sh/src/config.sh"; then
   logFatal "Failed to import config.sh"
 fi

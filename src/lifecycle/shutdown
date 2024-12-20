@@ -18,6 +18,7 @@ shutdown_main() {
   fi
   if [[ "${SH_CMD}" == "${SHUTDOWN_LOCAL}" ]]; then
     info "Shutting down locally"
+    # shellcheck disable=SC2154
     if ! "${HOME_BIN}/qhal" beep Error; then
       logError "Failed to buzz indicating local shutdown"
     fi
@@ -50,10 +51,10 @@ notify_wait_sol() {
 }
 
 shutdown_init() {
-  if ! command -v xe &> /dev/null; then
+  if ! command -v xe &>/dev/null; then
     logError "XCP-ng tools not found"
     return 1
-  elif ! res=$(xe host-list name-label="$(hostname)" --minimal); then
+  elif ! res=$(xe host-list name-label="$(hostname || true)" --minimal); then
     logError "Failed to get host"
     exit 1
   elif [[ -z "${res}" ]]; then
@@ -71,6 +72,7 @@ shutdown_init() {
   if ! config_load "${SH_ROOT}/data/local.env"; then
     logError "Failed to load local configuration"
   fi
+  # shellcheck disable=SC2154
   if ! config_load "${CONFIG_DIR}/email.env"; then
     logError "Failed to load QNAP configuration"
   fi
@@ -84,8 +86,7 @@ sh_parse() {
   local long="help,execute"
 
   local opts
-  opts=$(getopt --options ${short} --long ${long} --name "${SH_ME}" -- "${SH_ARGS[@]}")
-  if [[ $? -ne 0 ]]; then
+  if ! opts=$(getopt --options "${short}" --long "${long}" --name "${SH_ME}" -- "${SH_ARGS[@]}"); then
     error "Failed to parse arguments"
     exit 1
   fi
@@ -96,47 +97,46 @@ sh_parse() {
   eval set -- "${opts}"
   while true; do
     case "$1" in
-      -h|--help)
-        sh_print_usage
-        exit 0
-        ;;
-      -e|--execute)
-        opt="-e"
-        shift
-        ;;
-      --)
-        shift
-        break
-        ;;
-      *)
-        error "Unknown option: $1"
-        exit 1
-        ;;
+    -h | --help)
+      sh_print_usage
+      exit 0
+      ;;
+    -e | --execute)
+      opt="-e"
+      shift
+      ;;
+    --)
+      shift
+      break
+      ;;
+    *)
+      error "Unknown option: $1"
+      exit 1
+      ;;
     esac
   done
 
   # Handle positional arguments
   while [[ $# -gt 0 ]]; do
     case "$1" in
-      all|local)
-        cmd=${1}
-        shift
-        ;;
-      *)
-        error "Unknown or too many argument: $1"
-        exit 1
-        ;;
+    all | local)
+      cmd=${1}
+      shift
+      ;;
+    *)
+      error "Unknown or too many argument: $1"
+      exit 1
+      ;;
     esac
   done
 
   if [[ -n "${cmd}" ]]; then
     logInfo "Mark system ${cmd} for shutdown"
-    echo ${SHUTDOWN_ALL} > ${SHUTDOWN_CMD_FILE}
+    echo "${SHUTDOWN_ALL}" >"${SHUTDOWN_CMD_FILE}"
     if [[ "${cmd}" == "${SHUTDOWN_ALL}" ]]; then
       if [[ "${opt}" == "-e" ]]; then
         logInfo "Trigger the shutdown"
-        /sbin/shutdown -h +0
-        if [[ $? -ne 0 ]]; then
+        if ! /sbin/shutdown -h +0; then
           error "Failed to trigger shutdown"
         else
           logInfo "Shutdown triggered"
@@ -168,8 +168,7 @@ EOF
 info() {
   logInfo "$1"
 
-  xe message-create name="Shutdown" body="${1}" priority="${LVL_INFO}" host-uuid="${HOST_ID}"
-  if [[ $? -ne 0 ]]; then
+  if ! xe message-create name="Shutdown" body="${1}" priority="${LVL_INFO}" host-uuid="${HOST_ID}"; then
     logError "Failed to send notification to XCP-ng"
   fi
 }
@@ -177,8 +176,7 @@ info() {
 warn() {
   logWarn "$1"
 
-  xe message-create name="Shutdown" body="${1}" priority="${LVL_WARN}" host-uuid="${HOST_ID}"
-  if [[ $? -ne 0 ]]; then
+  if ! xe message-create name="Shutdown" body="${1}" priority="${LVL_WARN}" host-uuid="${HOST_ID}"; then
     logError "Failed to send notification to XCP-ng"
   fi
 }
@@ -186,8 +184,7 @@ warn() {
 error() {
   logError "$1"
 
-  xe message-create name="Shutdown" body="${1}" priority="${LVL_ERROR}" host-uuid="${HOST_ID}"
-  if [[ $? -ne 0 ]]; then
+  if ! xe message-create name="Shutdown" body="${1}" priority="${LVL_ERROR}" host-uuid="${HOST_ID}"; then
     logError "Failed to send notification to XCP-ng"
   fi
 }
@@ -226,10 +223,12 @@ SH_ROOT=$(realpath "${SH_ROOT}/../..")
 # Import dependencies
 export LOG_CONSOLE=0
 SETUP_REPO_DIR="${SH_ROOT}/external/setup"
+# shellcheck disable=SC1091
 if ! source "${SETUP_REPO_DIR}/external/slf4.sh/src/slf4.sh"; then
   echo "Failed to import slf4.sh"
   exit 1
 fi
+# shellcheck disable=SC1091
 if ! source "${SETUP_REPO_DIR}/external/config.sh/src/config.sh"; then
   logFatal "Failed to import config.sh"
 fi
