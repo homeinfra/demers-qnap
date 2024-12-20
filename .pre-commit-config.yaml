@@ -3,25 +3,25 @@ repos:
   # - repo: https://github.com/pre-commit/pre-commit-hooks
   #   rev: v4.5.0  # Use latest available version
   #   hooks:
-  #     - id: check-added-large-files
-  #       args: ['--maxkb=512']
-  #     - id: check-ast  # Python
-  #     - id: check-case-conflict
-  #     - id: check-executables-have-shebangs # Shell
-  #     - id: check-shebang-scripts-are-executable # Shell
-  #     - id: check-merge-conflict
-  #     - id: check-symlinks
-  #     - id: check-yaml # YAML
-  #     - id: destroyed-symlinks
-  #     - id: detect-private-key
-  #     - id: end-of-file-fixer
-  #     - id: fix-byte-order-marker
-  #     - id: forbid-new-submodules
-  #     - id: mixed-line-ending
-  #       args: ['--fix=lf']
-  #     - id: requirements-txt-fixer # Python
-  #     - id: sort-simple-yaml # YAML
-  #     - id: trailing-whitespace
+      # - id: check-added-large-files
+      #   args: ['--maxkb=512']
+      # - id: check-ast  # Python
+      # - id: check-case-conflict
+      # - id: check-executables-have-shebangs # Shell
+      # - id: check-shebang-scripts-are-executable # Shell
+      # - id: check-merge-conflict
+      # - id: check-symlinks
+      # - id: check-yaml # YAML
+      # - id: destroyed-symlinks
+      # - id: detect-private-key
+      # - id: end-of-file-fixer
+      # - id: fix-byte-order-marker
+      # - id: forbid-new-submodules
+      # - id: mixed-line-ending
+      #   args: ['--fix=lf']
+      # - id: requirements-txt-fixer # Python
+      # - id: sort-simple-yaml # YAML
+      # - id: trailing-whitespace
   # - repo: https://github.com/scop/pre-commit-shfmt
   #   rev: v3.7.0-4  # Use the latest release of shfmt
   #   hooks:
