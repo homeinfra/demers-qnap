@@ -6,7 +6,7 @@
 if [[ -z ${GUARD_QN_SENSORS_SH} ]]; then
   GUARD_QN_SENSORS_SH=1
 else
-  return
+  return 0
 fi
 
 sensor_install() {
@@ -72,7 +72,7 @@ SE_ROOT=$(realpath "${SE_ROOT}/../..")
 # Import dependencies
 SETUP_REPO_DIR="${SE_ROOT}/external/setup"
 # shellcheck disable=SC1091
-if ! source "${SETUP_REPO_DIR}/external/slf4.sh/src/slf4.sh"; then
+if ! source "${PREFIX:-/usr/local}/lib/slf4.sh"; then
   echo "Failed to import slf4.sh"
   exit 1
 fi

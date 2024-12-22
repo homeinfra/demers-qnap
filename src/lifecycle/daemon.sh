@@ -193,7 +193,7 @@ DM_ROOT=$(realpath "${DM_ROOT}/../..")
 # Import dependencies
 SETUP_REPO_DIR="${DM_ROOT}/external/setup"
 # shellcheck disable=SC1091
-if ! source "${SETUP_REPO_DIR}/external/slf4.sh/src/slf4.sh"; then
+if ! source "${PREFIX:-/usr/local}/lib/slf4.sh"; then
   echo "Failed to import slf4.sh"
   exit 1
 fi

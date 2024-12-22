@@ -120,12 +120,12 @@ ST_ROOT=$(realpath "${ST_ROOT}/../..")
 # Import dependencies
 SETUP_REPO_DIR="${ST_ROOT}/external/setup"
 # shellcheck disable=SC1091
-if ! source "${SETUP_REPO_DIR}/external/slf4.sh/src/slf4.sh"; then
+if ! source "${PREFIX:-/usr/local}/lib/slf4.sh"; then
   echo "Failed to import slf4.sh"
   exit 1
 fi
 # shellcheck disable=SC1091
-if ! source "${SETUP_REPO_DIR}/external/config.sh/src/config.sh"; then
+if ! source "${PREFIX:-/usr/local}/lib/config.sh"; then
   logFatal "Failed to import config.sh"
 fi
 # shellcheck disable=SC1091
