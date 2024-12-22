@@ -11,8 +11,24 @@ fi
 
 # Install AQ113C drivers
 aq113c_install() {
-  # Begin by downloading it.
-  # We will need it at least to figured out the package name.
+
+  # Check if we have the correct version of the driver
+  if ! modinfo "${AQ_KO_NAME}" &>/dev/null; then
+    logWarn "AQ113C driver not found"
+  else
+    AQ_PRESENT=1
+    logInfo "AQ113C driver already installed. Checking version..."
+    local version
+    version=$(modinfo "${AQ_KO_NAME}" | grep "^version:" | awk '{print $2}')
+    if [[ "${version}" == "${AQ_VERSION}" ]]; then
+      logInfo "AQ113C driver is up to date"
+      return 0
+    else
+      logWarn "AQ113C driver is out of date. Expected version ${AQ_VERSION}, found ${version}"
+    fi
+  fi
+
+  # If we reach here, the driver needs to be installed
   local dir
   if ! aq113c_download dir; then
     logError "Failed to get the driver"
@@ -24,40 +40,52 @@ aq113c_install() {
     return 1
   fi
 
-  local res
-  # Find rpm file
-  local rpm_file
-  rpm_file=$(find . -maxdepth 1 -type f -name "*.rpm")
-  if [[ -n "${rpm_file}" ]]; then
-    logInfo "Found RPM file: ${rpm_file}"
-
-    # Check if already installed
-    local package_name
-    package_name=$(rpm -qp --queryformat '%{NAME}' "${rpm_file}")
-    if rpm -q "${package_name}" >/dev/null 2>&1; then
-      res=0
-    else
-      # First, make sure the dependencies are installed
-      if ! pkg_install "kernel-devel"; then
-        logError "Failed to install kernel module devel"
-        res=1
-      else
-        # Install the package
-        if ! sudo yum install -y "${rpm_file}"; then
-          logError "Failed to install RPM file"
-          res=1
-        else
-          logInfo "Successfully installed AQ113C driver"
-          res=0
-        fi
-      fi
-    fi
-  else
-    logError "Failed to find RPM file"
+  local src_dir="${BIN_DIR}/aq113c_src_${AQ_VERSION}"
+  local src_arch
+  local res=0
+  src_arch=$(find . -maxdepth 1 -type f -name "*.tar.gz")
+  if [[ -z "${src_arch}" ]]; then
+    logError "Failed to find source archive"
     res=1
+  fi
+  if [[ ${res} -eq 0 ]] && ! mkdir -p "${src_dir}"; then
+      logError "Failed to create source directory"
+      res=1
+  fi
+  if [[ ${res} -eq 0 ]] && ! tar -xzf "${src_arch}" -C "${src_dir}"; then
+    logError "Failed to extract source files"
+    res=1
+  fi
+  if [[ ${res} -eq 0 ]] && ! pushd "${src_dir}/Linux" &>/dev/null; then
+    logError "Failed to change directory to ${dir}"
+    res=1
+  fi
+  if [[ ${res} -eq 0 ]] && ! make; then
+    logError "Failed to build AQ113C driver"
+    res=1
+  fi
+  if [[ ${res} -eq 0 ]] && [[ "${AQ_PRESENT}" -eq 1 ]]; then
+    logInfo "Unloading existing driver"
+    if ! rmmod "${AQ_KO_NAME}"; then
+      logError "Failed to unload existing driver"
+      res=1
+    fi
+  fi
+  if [[ ${res} -eq 0 ]] && ! make load; then
+    logError "Failed to load driver"
+    res=1
+  fi
+  if [[ ${res} -eq 0 ]] && ! make install; then
+    logError "Failed to install driver"
+    res=1
+  elif [[ ${res} -eq 0 ]]; then
+    logInfo "Successfully installed AQ113C driver"
+    res=0
   fi
 
   popd &>/dev/null || true
+  popd &>/dev/null || true
+  exit 1
   return "${res}"
 }
 
@@ -133,8 +161,9 @@ aq113c_download() {
   return 0
 }
 
-AQ_VERSION="2.5.6"
-AQ_URL="https://www.marvell.com/content/dam/marvell/en/drivers/marvell_linux_${AQ_VERSION}.zip"
+AQ_VERSION="2.5.12"
+AQ_URL="https://www.marvell.com/content/dam/marvell/en/drivers/07-18-24_Marvell_Linux_${AQ_VERSION}.zip"
+AQ_KO_NAME="atlantic"
 
 ###########################
 ###### Startup logic ######
