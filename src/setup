@@ -6,6 +6,9 @@
 # Currently tested on XCP-ng 8.3 (CentOS)
 
 setup() {
+  LOG_CONSOLE=1
+  logSetLevel ${LEVEL_ALL}
+
   if ! setup_dependencies; then
     logError "Failed to setup dependencies"
     return 1
@@ -237,7 +240,7 @@ validate_hardware() {
       return 1
     fi
   done
-
+  
   if xe_validate_nic "${macs[@]}"; then
     logInfo "All network interfaces exist"
   else
@@ -345,7 +348,6 @@ external_depends
 # Import dependencies
 SETUP_REPO_DIR="${DQ_ROOT}/external/setup"
 XE_LIB_DIR="${DQ_ROOT}/external/xapi.sh"
-LOG_CONSOLE=1
 # shellcheck disable=SC1091
 if ! source "${PREFIX:-/usr/local}/lib/slf4.sh"; then
   echo "Failed to import slf4.sh"
