@@ -9,6 +9,12 @@ setup() {
   LOG_CONSOLE=1
   logSetLevel ${LEVEL_ALL}
 
+  # Load install configuration
+  if ! config_load "${DQ_ROOT}/data/local.env"; then
+    logError "Failed to load install configuration"
+    return 1
+  fi
+  
   if ! setup_dependencies; then
     logError "Failed to setup dependencies"
     return 1
@@ -33,12 +39,6 @@ setup() {
 }
 
 setup_dependencies() {
-  # Load install configuration
-  if ! config_load "${DQ_ROOT}/data/local.env"; then
-    logError "Failed to load install configuration"
-    return 1
-  fi
-
   # Make sure git is installed and configured
   if ! git_install; then
     logInfo "Failed to install git"
@@ -67,7 +67,10 @@ setup_dependencies() {
 }
 
 setup_host_hardware() {
-  config_load "${DQ_ROOT}/data/hardware.env"
+  if ! config_load "${DQ_ROOT}/data/hardware.env"; then
+    logError "Failed to load hardware configuration"
+    return 1
+  fi
 
   # Make sure we are executing on the right system
   if ! check_system; then
@@ -170,8 +173,17 @@ setup_ups() {
     if [[ "$(readlink "${nut_script_dest}" || true)" == "${nut_script}" ]]; then
       logInfo "${nut_script} already symlinked"
     else
-      logError "${nut_script} is not symlinked to ${nut_script_dest}"
-      return 1
+      # Replace symlink
+      if ! rm -f "${nut_script_dest}"; then
+        logError "Failed to remove old symlink"
+        return 1
+      fi
+      if ! ln -s "${nut_script}" "${nut_script_dest}"; then
+        logError "Failed to create ${nut_script} simlink"
+        return 1
+      else
+        logInfo "Replaced symlink to ${nut_script} successfully"
+      fi
     fi
   elif [[ -f "${nut_script_dest}" ]]; then
     logError "A ${nut_script} file already exists"

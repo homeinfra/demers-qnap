@@ -86,7 +86,7 @@ aq113c_install() {
   popd &>/dev/null || true
   popd &>/dev/null || true
 
-  return "${res}"
+  return ${res}
 }
 
 # Download AQ113C drivers

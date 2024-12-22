@@ -263,7 +263,7 @@ sd_test_alerts() {
     success=1
   fi
 
-  return "${success}"
+  return ${success}
 }
 
 ###########################

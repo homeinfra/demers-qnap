@@ -6,9 +6,10 @@
 import ast
 from collections import namedtuple
 from datetime import datetime
+import io
 import os
 from pathlib import Path
-from subprocess import Popen, PIPE, run
+from subprocess import DEVNULL, Popen, PIPE, run
 import argparse
 import socket
 import daemon
@@ -262,10 +263,10 @@ class ButtonHandler(IOHandler):
     self._log.info(f'Button {button.name} was pressed while in test mode')
     # Do a beep
     res = Popen([f"{os.environ['HOME_BIN']}/qhal", 'beep', 'Beep'], stdout=PIPE, stderr=PIPE)
-    res.communicate()
+    stdout, stderr = res.communicate()
     if res.returncode:
       self._log.error(f'Beep failed with return code: {res.returncode}.'
-                      f' Stderr: {res.stderr}. Stdout: {res.stdout}. Stdout: {res.stdout}')
+                      f' Stderr: {res.stderr}. Stdout: {stdout}')
     else:
       self._log.info(f'Beep executed with result: {res.returncode}')
 
@@ -275,11 +276,11 @@ class ButtonHandler(IOHandler):
     try:
       if self.__commands[button] is not None:
         res = Popen(self.__commands[button], stdout=PIPE, stderr=PIPE)
-        res.communicate()
+        stdout, stderr = res.communicate()
         self._log.info(f'Command {self.__commands[button]} executed with result: {res.returncode}')
         if res.returncode:
           self._log.error(f'Command failed with return code: {res.returncode}.'
-                          f'Stderr: {res.stderr}. Stdout: {res.stdout}. Stdout: {res.stdout}')
+                          f'Stderr: {stderr}. Stdout: {stdout}')
       else:
         self._log.info(f'No command configured for button {button.name}')
     except Exception as e:
@@ -509,11 +510,12 @@ class QhalClient:
     sound = next((s for s in sounds if s.name == arg), None)
 
     res = Popen([f"{os.environ['HOME_BIN']}/qnap_hal", 'hal_app', '--se_buzzer',
-                 f"enc_id=0,mode={sound.id}"], stdout=PIPE, stderr=PIPE)
-    res.communicate()
+                 f"enc_id=0,mode={sound.id}"], stdout=PIPE, stderr=PIPE,
+                 cwd=os.getcwd())
+    stdout, stderr = res.communicate()
     if res.returncode:
       self.__log.error(f"Failed to play sound: {sound.name}. Return Code:"
-                       f" {res.returncode}. Stderr: {res.stderr}. Stdout: {res.stdout}")
+                       f" {res.returncode}. Stderr: {stderr}. Stdout: {stdout}")
       print(f"Failed to play sound: {sound.name}")
 
 
@@ -604,11 +606,21 @@ def status_daemon(logger):
     print("Daemon is not running")
 
 
-def load_config():
+def load_config(logger):
   """Load project configuration."""
   filename = f"{ROOT}/data/local.env"
-  load_dotenv(filename, override=True)
+  # Need to load file in memory to perform text replace
+  with open(filename, 'r') as file:
+    data = file.read()
+    if '@GIT_ROOT@' in data:
+      # Get root of repo form the CWD
+      git_root = get_git_root(logger)
+      data = data.replace ('@GIT_ROOT@', git_root)
+      
+    # Load the configuration
+    load_dotenv(stream= io.StringIO(data), override=True)
 
+  # TODO: Support encrypted files
   # all_config_files = os.environ['LOCAL_CONFIG']
   # for cfile in re.finditer(r'[^:]+', all_config_files):
   #   filename=f"{ROOT}/{cfile.group(0)}"
@@ -617,11 +629,39 @@ def load_config():
   #     subprocess.run(["sops", "--decrypt", filename], stdout=file, check=True)
   #     load_dotenv(file.name, override=True)
 
+def get_git_root(logger):
+  """Get the root of the git repository."""
+    
+  cur_dir = os.getcwd()
+  while not os.path.isdir(cur_dir):
+    if not cur_dir or cur_dir == os.sep:
+      raise Exception("Found the ROOT while searching for git root")
+    cur_dir = os.path.dirname(cur_dir)
+  
+  # Ok, from this point we have a valid directory
+  logger.info("Starting search for git root, starting from: %s", cur_dir)
+  # Check if git is installed
+  if run(["command", "-v", "git"], stdout=DEVNULL, stderr=DEVNULL).returncode != 0:
+      raise Exception("Git not installed")
+    
+  if run(["git", "rev-parse", "--is-inside-work-tree"], cwd=cur_dir, stdout=DEVNULL, stderr=DEVNULL).returncode == 0:
+    res = run(['git', 'rev-parse', '--show-toplevel'], cwd=cur_dir, stdout=PIPE, stderr=PIPE, check=True)
+    cur_dir = res.stdout.decode().strip()
+    next_dir = os.path.dirname(cur_dir)
+    while run(["git", "rev-parse", "--is-inside-work-tree"], cwd=next_dir, stdout=DEVNULL, stderr=DEVNULL).returncode == 0:
+      res = run(['git', 'rev-parse', '--show-toplevel'], cwd=next_dir, stdout=PIPE, stderr=PIPE, check=True)
+      cur_dir = res.stdout.decode().strip()
+      next_dir = os.path.dirname(cur_dir)
+    logger.info("Found git root: %s", cur_dir)
+  else:
+    logger.warning("Not a git repository: %s", cur_dir)   
+    
+  return cur_dir
 
 def main():
   """Start execution here."""
-  load_config()
   logger = LoggerConfig().get_logger()
+  load_config(logger)
   try:
     logger.info('== %s Started ==', Path(__file__).name)
 

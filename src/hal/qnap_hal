@@ -98,7 +98,7 @@ qnap_hal_install() {
     return 1
   fi
 
-  return "${res}"
+  return ${res}
 }
 
 qnap_hal_init() {
@@ -134,7 +134,7 @@ qnap_hal_init() {
     if qnap_hal_invoke "${cmd[@]}"; then
       if sleep 1; then
         if qnap_hal_invoke "${cmd[@]}"; then
-          if sleep 10; then
+          if ! sleep 10; then
             logError "Failed to wait for hal_daemon to start"
             ret_value=1
           fi
@@ -154,7 +154,7 @@ qnap_hal_init() {
 
   # Clean up (best effort)
   kill -9 "$(pidof hal_daemon || true)"
-  return "${ret_value}"
+  return ${ret_value}
 }
 
 # Wrapper to call a command on the HAL
@@ -180,7 +180,7 @@ qnap_hal_invoke() {
   res=$?
   logTrace "Exceution completed: ${res}"
 
-  return "${res}"
+  return ${res}
 }
 
 ###########################
