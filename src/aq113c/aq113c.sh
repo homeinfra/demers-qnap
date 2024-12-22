@@ -20,14 +20,14 @@ aq113c_install() {
     logInfo "AQ113C driver already installed. Checking version..."
     local version
     version=$(modinfo "${AQ_KO_NAME}" | grep "^version:" | awk '{print $2}')
-    if [[ "${version}" == "${AQ_VERSION}" ]]; then
+    if [[ "${version}" == "${AQ_VERSION}"* ]]; then
       logInfo "AQ113C driver is up to date"
       return 0
     else
       logWarn "AQ113C driver is out of date. Expected version ${AQ_VERSION}, found ${version}"
     fi
   fi
-
+  
   # If we reach here, the driver needs to be installed
   local dir
   if ! aq113c_download dir; then
@@ -85,7 +85,7 @@ aq113c_install() {
 
   popd &>/dev/null || true
   popd &>/dev/null || true
-  exit 1
+
   return "${res}"
 }
 
