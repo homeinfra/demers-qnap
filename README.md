@@ -116,10 +116,10 @@ Local tasks:
 - [x] mdadm scrubbing and monitoring alerts
 - [x] Re-enable ACPI power button
 - [x] NUT UPS support
-- [ ] Partitions
+- [x] Partitions
 - [ ] NetData (hardware monitoring)
-- [ ] Local ISO storage
-- [ ] Local VM storage
+- [x] Local ISO storage
+- [x] Local VM storage
 - [x] Skeleton of a shutdown and startup script and daemon. Should
 hook full shutdown to USB_Copy button
 
@@ -131,4 +131,4 @@ Horizon tasks:
 
 ### Nice to have
 
-- [ ] Linter (pre-commit hook configuration) and cleanup existing code
+- [x] Linter (pre-commit hook configuration) and cleanup existing code

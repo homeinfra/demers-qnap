@@ -3,6 +3,13 @@
 #
 # This script configures the persistent storage for the XCP-ng host
 
+
+if [[ -z ${GUARD_STORAGE_SH} ]]; then
+  GUARD_STORAGE_SH=1
+else
+  return 0
+fi
+
 storage_setup() {
   STOR_FILE="${CONFIG_DIR}/storage.env"
 
@@ -25,8 +32,11 @@ storage_setup() {
         res=$?
         ;;
       mounted)
-        storage_unmount
-        res=$?
+        if [[ ${res}  -eq 0 ]]; then
+          logInfo "Storage configured succesfully"
+        else
+          logError "Failed to mount storage"
+        fi
         break
         ;;
       *)
@@ -76,16 +86,14 @@ storage_mount() {
   elif ! config_save "${STOR_FILE}" VM_STOR_LOOP2 "${vm_loop_device}"; then
     logError "Failed to save VM_STOR_LOOP2"
     return 1
-  else
-    logInfo "Loop device created for VM storage: ${vm_loop_device}"
-  fi
-
-  # RAID assemble
-  if ! disk_assemble_radi1 "${VM_STOR_DRIVE}" "${VM_STOR_DRIVE1}" "${vm_loop_device}"; then
+  elif ! disk_assemble_radi1 "${VM_STOR_DRIVE}" "${VM_STOR_DRIVE1}" "${vm_loop_device}"; then
     logError "Failed to assemble RAID 1 array for VM storage"
     return 1
+  elif ! xe_stor_plug "${VM_STOR_NAME}"; then
+    logError "Failed to plug VM storage"
+    return 1
   else
-    logInfo "RAID array assembled for VM storage"
+    logInfo "VM storage connected"
   fi
 
   # Second: ISO Storage
@@ -102,14 +110,14 @@ storage_mount() {
   elif ! config_save "${STOR_FILE}" ISO_STOR_LOOP "${iso_loop_device}"; then
     logError "Failed to save ISO_STOR_LOOP"
     return 1
-  elif ! mkdir -p "${ISO_STOR_PATH}"; then
-    logError "Failed to create ISO storage mount point"
-    return 1
   elif ! mount "/dev/${iso_loop_device}" "${ISO_STOR_PATH}"; then
     logError "Failed to mount ISO storage"
     return 1
+  elif ! xe_stor_plug "${ISO_STOR_NAME}"; then
+    logError "Failed to plug ISO storage"
+    return 1
   else
-    logInfo "Loop device created for ISO storage: ${iso_loop_device}"
+    logInfo "ISO Storage connected"
   fi
 
   # Save the configuration as mounted
@@ -146,7 +154,10 @@ storage_unmount() {
   esac
 
   # First: ISO Storage
-  if ! umount "${ISO_STOR_PATH}"; then
+  if ! xe_stor_unplug "${ISO_STOR_NAME}"; then
+    logError "Failed to unplug ISO storage"
+    return 1
+  elif ! umount "${ISO_STOR_PATH}"; then
     logError "Failed to unmount ISO storage"
     return 1
   elif [[ -z ${ISO_STOR_LOOP} ]]; then
@@ -159,11 +170,14 @@ storage_unmount() {
     logError "Failed to remove ISO_STOR_LOOP"
     return 1
   else
-    logInfo "ISO storage unmounted"
+    logInfo "ISO storage disconnected"
   fi
 
   # Second: VM Storage
-  if ! disk_remove_raid "${VM_STOR_DRIVE}"; then
+  if ! xe_stor_unplug "${VM_STOR_NAME}"; then
+    logError "Failed to unplug VM storage"
+    return 1
+  elif ! disk_remove_raid "${VM_STOR_DRIVE}"; then
     logError "Failed to remove RAID array for VM storage"
     return 1
   elif [[ -z ${VM_STOR_LOOP2} ]]; then
@@ -228,6 +242,14 @@ storage_create() {
     logInfo "RAID1 array created for VM storage"
   fi
 
+  # Create the SR record for the VM storage
+  if ! xe_stor_create_lvm res "${VM_STOR_NAME}" "${VM_STOR_DRIVE}"; then
+    logError "Failed to create SR record for VM storage"
+    return 1
+  else
+    logInfo "SR record created for VM storage: ${res}"
+  fi
+
   # Create the ISO storage
   if ! disk_create_loop iso_loop_device "${ISO_STOR_DRIVE}" "${ISO_STOR_START}" "${ISO_STOR_SIZE}"; then
     logError "Failed to create loop device for ISO storage"
@@ -244,6 +266,25 @@ storage_create() {
     logInfo "ISO storage formatted"
   fi
 
+  # Mount the ISO storage
+  if ! mkdir -p "${ISO_STOR_PATH}"; then
+    logError "Failed to create ISO storage mount point"
+    return 1
+  elif ! mount "/dev/${iso_loop_device}" "${ISO_STOR_PATH}"; then
+    logError "Failed to mount ISO storage"
+    return 1
+  else
+    logInfo "ISO storage mounted: ${ISO_STOR_PATH}"
+  fi
+
+  # Create the SR record for the ISO storage
+  if ! xe_stor_create_iso res "${ISO_STOR_NAME}" "${ISO_STOR_PATH}"; then
+    logError "Failed to create SR record for ISO storage"
+    return 1
+  else
+    logInfo "SR record created for ISO storage: ${res}"
+  fi
+
   # Save the configuration as created
   if ! config_save "${STOR_FILE}" STOR_STATE created; then
     logError "Failed to save STOR_STATE"
@@ -253,23 +294,31 @@ storage_create() {
   fi
 
   # If we reached here, everything was created successfully. Now unload it all
-  if ! disk_remove_raid "${VM_STOR_DRIVE}"; then
+  res=0
+  if ! xe_stor_unplug "${VM_STOR_NAME}"; then
+    logError "Failed to unplug VM storage"
+    res=1
+  elif ! disk_remove_raid "${VM_STOR_DRIVE}"; then
     logError "Failed to remove RAID array"
     res=1
-  else
-    logInfo "RAID array removed"
-  fi
-  if ! disk_remove_loop "${vm_loop_device}"; then
+  elif ! disk_remove_loop "${vm_loop_device}"; then
     logError "Failed to remove loop device for VM storage"
     res=1
   else
-    logInfo "Loop device removed for VM storage"
+    logInfo "VM Storage disconnected"
   fi
-  if ! disk_remove_loop "${iso_loop_device}"; then
+
+  if ! xe_stor_unplug "${ISO_STOR_NAME}"; then
+    logError "Failed to unplug ISO storage"
+    res=1
+  elif ! umount "${ISO_STOR_PATH}"; then
+    logError "Failed to unmount ISO storage"
+    res=1
+  elif ! disk_remove_loop "${iso_loop_device}"; then
     logError "Failed to remove loop device for ISO storage"
     res=1
   else
-    logInfo "Loop device removed for ISO storage"
+    logInfo "ISO storage disconnected"
   fi
 
   return ${res}
@@ -400,6 +449,9 @@ EOF
   elif ! config_save "${STOR_FILE}" VM_STOR_DRIVE "md10"; then
     logError "Failed to save VM_STOR_DRIVE"
     return 1
+  elif ! config_save "${STOR_FILE}" VM_STOR_NAME "qnap_vm"; then
+    logError "Failed to save VM_STOR_NAME"
+    return 1
   else
     logInfo "Storage configuration saved for VM storage"
   fi
@@ -443,6 +495,9 @@ EOF
   elif ! config_save "${STOR_FILE}" ISO_STOR_PATH "/mnt/iso_store"; then
     logError "Failed to save ISO_STOR_PATH"
     return 1
+  elif ! config_save "${STOR_FILE}" ISO_STOR_NAME "qnap_iso"; then
+    logError "Failed to save ISO_STOR_NAME"
+    return 1
   else
     logInfo "Storage configuration saved for ISO storage"
   fi
@@ -475,6 +530,7 @@ SR_ROOT=$(realpath "${SR_ROOT}/../..")
 
 # Import dependencies
 SETUP_REPO_DIR="${SR_ROOT}/external/setup"
+XE_REPO_DIR="${SR_ROOT}/external/xapi.sh"
 # shellcheck disable=SC1091
 if ! source "${PREFIX:-/usr/local}/lib/slf4.sh"; then
   echo "Failed to import slf4.sh"
@@ -488,6 +544,10 @@ fi
 if ! source "${SETUP_REPO_DIR}/src/disk.sh"; then
   logFatal "Failed to import config.sh"
 fi
+# shellcheck disable=SC1091
+if ! source "${XE_REPO_DIR}/src/xe_storage.sh"; then
+  logFatal "Failed to import config.sh"
+fi
 
 if [[ -p /dev/stdin ]] && [[ -z ${BASH_SOURCE[0]} ]]; then
   # This script was piped
@@ -497,10 +557,5 @@ elif [[ ${BASH_SOURCE[0]} != "${0}" ]]; then
   :
 else
   # This script was executed
-  config_load "${SR_ROOT}/data/local.env"
-
-  LOG_CONSOLE=1
-  logSetLevel "${LEVEL_ALL}"
-  storage_setup
-  exit $?
+  logFatal "This script cannot be executed"
 fi

@@ -129,6 +129,11 @@ setup_host_hardware() {
   fi
   logInfo "PCI passthrough configured"
 
+  if ! storage_setup; then
+    logError "Failed to setup storage"
+    return 1
+  fi
+
   return 0
 }
 
@@ -415,6 +420,9 @@ if ! source "${DQ_ROOT}/src/lifecycle/daemon.sh"; then
 fi
 if ! source "${DQ_ROOT}/src/iommu/passthrough.sh"; then
   logFatal "Failed to import passthrough.sh"
+fi
+if ! source "${DQ_ROOT}/src/storage/storage.sh"; then
+  logFatal "Failed to import storage.sh"
 fi
 
 if [[ -p /dev/stdin ]] && [[ -z ${BASH_SOURCE[0]} ]]; then
