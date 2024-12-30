@@ -110,6 +110,7 @@ deamon_configure() {
   _content=$(cat "${service_file_src}")
   _content="${_content//"@STARTUP_CMD@"/${startup_script}}"
   _content="${_content//"@SHUTDOWN_CMD@"/${shutdown_script}}"
+  _content="${_content//"@GIT_ROOT@"/${DM_ROOT}}"
 
   # Compare with existing service file
   local state

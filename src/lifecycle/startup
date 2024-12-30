@@ -9,6 +9,10 @@ startup_main() {
 
   hardware_init
 
+  if ! storage_mount; then
+    error "Failed to mount storage"
+  fi
+
   # Startup complete
   # shellcheck disable=SC2154
   if ! "${HOME_BIN}/qhal" beep Online; then
@@ -129,8 +133,12 @@ if ! source "${PREFIX:-/usr/local}/lib/config.sh"; then
   logFatal "Failed to import config.sh"
 fi
 # shellcheck disable=SC1091
-if ! source "${ST_ROOT}/src/hal/qnap_hal.sh"; then
-  logFatal "Failed to import qnap_hal.sh"
+if ! source "${ST_ROOT}/src/hal/qnap_hal"; then
+  logFatal "Failed to import qnap_hal"
+fi
+# shellcheck disable=SC1091
+if ! source "${ST_ROOT}/src/storage/storage.sh"; then
+  logFatal "Failed to import storage.sh"
 fi
 
 if [[ -p /dev/stdin ]] && [[ -z ${BASH_SOURCE[0]} ]]; then

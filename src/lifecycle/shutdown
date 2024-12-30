@@ -38,11 +38,15 @@ shutdown_main() {
 }
 
 shutdown_local() {
-  notify_wait_sol
+  if ! storage_unmount; then
+    error "Failed to unmount storage"
+  fi
+  echo "Local shutdown"
 }
 
 shutdown_all() {
   notify_wait_sol
+  shutdown_local
 }
 
 notify_wait_sol() {
@@ -231,6 +235,10 @@ fi
 # shellcheck disable=SC1091
 if ! source "${PREFIX:-/usr/local}/lib/config.sh"; then
   logFatal "Failed to import config.sh"
+fi
+# shellcheck disable=SC1091
+if ! source "${SH_ROOT}/src/storage/storage.sh"; then
+  logFatal "Failed to import storage.sh"
 fi
 
 if [[ -p /dev/stdin ]] && [[ -z ${BASH_SOURCE[0]} ]]; then
