@@ -15,6 +15,10 @@ startup_main() {
 
   # Startup complete
   # shellcheck disable=SC2154
+  if ! "${HOME_BIN}/qhal" lcd off; then
+    error "Failed to turn off LCD"
+  fi
+  # shellcheck disable=SC2154
   if ! "${HOME_BIN}/qhal" beep Online; then
     error "Failed to buzz indicating startup complete"
   fi

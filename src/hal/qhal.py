@@ -10,11 +10,13 @@ import io
 import os
 from pathlib import Path
 from subprocess import DEVNULL, Popen, PIPE, run
+from serial import Serial
 import argparse
 import socket
 import daemon
 import signal
 import logging
+import qnaplcd
 from portio import ioperm, inb, outb
 from dotenv import load_dotenv
 
@@ -519,6 +521,45 @@ class QhalClient:
       print(f"Failed to play sound: {sound.name}")
 
 
+def lcd_set_state(log, ser, state):
+  log.info(f"Setting LCD state to: {state}")
+  if state == 'on':
+    ser.write(b'M^\1\n')
+  elif state == 'off':
+    ser.write(b'M^\0\n')
+  else:
+    log.error(f"Unsupported LCD state: {state}")
+    print(f"Unsupported LCD state: {state}")
+    return
+  print(f"LCD state set to: {state}")
+    
+def lcd_write(log, ser, line1, line2):
+  log.info(f"Writing to LCD: \"{line1}\" - \"{line2}\"")
+  
+  # Init
+  ser.write(b'M\0')
+  initlcd = ser.read(4)
+  if initlcd == 'S\x01\x00}':
+    print("LCD is ok")
+  else:
+    print("LCD is not ok")
+    # return
+  
+  # Line 1
+  initrow = 'M\f\0\20'
+  writerow = '%s%s' % (initrow, line1.ljust(16)[:16])
+  ser.write(b'M^\1')
+  ser.write(writerow.encode())
+  
+  # Line 2
+  initrow = 'M\f\1\20'
+  writerow = '%s%s' % (initrow, line2.ljust(16)[:16])
+  ser.write(b'M^\1')
+  ser.write(writerow.encode())
+  
+  print(f"LCD written: \"{line1}\" - \"{line2}\"")
+  
+
 def start_daemon(logger):
   """Start the daemon."""
   if os.path.exists(PID_FILE):
@@ -683,6 +724,15 @@ def main():
         client.handle_temp_command(args.sensor)
       elif args.command == 'fan':
         client.handle_fan_command(args.fan)
+      elif args.command == 'lcd':
+        try:
+          with Serial(port="/dev/ttyS1", baudrate=1200, timeout=1) as ser:
+            if args.lcd_command == 'on' or args.lcd_command == 'off':
+              lcd_set_state(logger, ser, args.lcd_command)
+            elif args.lcd_command == 'write':
+              lcd_write(logger, ser, args.line1, args.line2)
+        except Exception as e:
+          logger.error(f"Failed to open serial port: {tty}", exc_info=e)          
       else:
         send_command_to_daemon(logger, cmd)
     else:
@@ -691,7 +741,7 @@ def main():
     logger.info('== %s Exited gracefully ==', Path(__file__).name)
   except Exception as e:
     logger.critical('== %s Failed ==', Path(__file__).name, exc_info=e)
-
+    
 
 def parse():
   """Parse the command line arguments."""
@@ -727,6 +777,17 @@ def parse():
 
   test_parser = subparsers.add_parser('test', help='Test Mode (Christmas Tree)')
   test_parser.add_argument('mode', choices=['on', 'off'], help='Test mode')
+  
+  # LCD commands
+  lcd_parser = subparsers.add_parser('lcd', help='Control the LCD panel')
+  lcd_subparsers = lcd_parser.add_subparsers(dest='lcd_command', help='LCD command')
+
+  lcd_on_parser = lcd_subparsers.add_parser('on', help='Turn LCD on')
+  lcd_off_parser = lcd_subparsers.add_parser('off', help='Turn LCD off')
+
+  lcd_write_parser = lcd_subparsers.add_parser('write', help='Write to LCD')
+  lcd_write_parser.add_argument('line1', help='Text for line 1')
+  lcd_write_parser.add_argument('line2', help='Text for line 2')
 
   args = parser.parse_args()
   if args.command is None:
