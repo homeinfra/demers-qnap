@@ -632,7 +632,7 @@ def load_config(logger):
 def get_git_root(logger):
   """Get the root of the git repository."""
     
-  cur_dir = os.getcwd()
+  cur_dir = os.path.realpath(os.path.abspath(__file__))
   while not os.path.isdir(cur_dir):
     if not cur_dir or cur_dir == os.sep:
       raise Exception("Found the ROOT while searching for git root")

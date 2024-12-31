@@ -78,7 +78,10 @@ setup_host_hardware() {
     return 1
   fi
 
-  # TODO: Configure partitions
+    if ! storage_setup; then
+    logError "Failed to setup storage"
+    return 1
+  fi
 
   # Install drivers for the 10 GBe NIC
   if ! aq113c_install; then
@@ -128,11 +131,6 @@ setup_host_hardware() {
     fi
   fi
   logInfo "PCI passthrough configured"
-
-  if ! storage_setup; then
-    logError "Failed to setup storage"
-    return 1
-  fi
 
   return 0
 }

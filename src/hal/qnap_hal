@@ -106,6 +106,12 @@ qnap_hal_init() {
   local install_root="${BIN_DIR}/hal"
   local cmd=("hal_daemon" "-f")
 
+  # Skip if already initialized once
+if [[ -f "${QN_HAL_INIT_FILE}"]]; then
+    logInfo "HAL already initialized"
+    return ${ret_value}
+  fi
+
   if ! umount "${install_root}/tmp" >/dev/null 2>&1; then
     logWarn "Failed to unmount ${install_root}/tmp"
   fi
@@ -134,7 +140,11 @@ qnap_hal_init() {
     if qnap_hal_invoke "${cmd[@]}"; then
       if sleep 1; then
         if qnap_hal_invoke "${cmd[@]}"; then
-          if ! sleep 10; then
+          if sleep 10; then
+            if ! touch "${QN_HAL_INIT_FILE}"; then
+              logWarn "Failed to create ${QN_HAL_INIT_FILE}"
+            fi
+          else
             logError "Failed to wait for hal_daemon to start"
             ret_value=1
           fi
@@ -182,6 +192,8 @@ qnap_hal_invoke() {
 
   return ${res}
 }
+
+QN_HAL_INIT_FILE="/tmp/qnap_hal_init"
 
 ###########################
 ###### Startup logic ######
