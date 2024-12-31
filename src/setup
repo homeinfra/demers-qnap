@@ -306,11 +306,11 @@ local_xcp_config() {
     return 1
   fi
 
-  #TODO: Local ISO storage
-
-  #TODO: Local VM storage
-
   #TODO: NetData agent
+  if ! pkg_install "netdata"; then
+    logError "Could not install netdata"
+    return 1
+  fi
 
   return 0
 }
