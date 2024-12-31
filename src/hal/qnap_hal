@@ -107,10 +107,10 @@ qnap_hal_init() {
   local cmd=("hal_daemon" "-f")
 
   # Skip if already initialized once
-if [[ -f "${QN_HAL_INIT_FILE}"]]; then
-    logInfo "HAL already initialized"
-    return ${ret_value}
-  fi
+if [[ -f "${QN_HAL_INIT_FILE}" ]]; then
+  logInfo "HAL already initialized"
+  return ${ret_value}
+fi
 
   if ! umount "${install_root}/tmp" >/dev/null 2>&1; then
     logWarn "Failed to unmount ${install_root}/tmp"
