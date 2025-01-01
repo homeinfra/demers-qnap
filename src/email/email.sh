@@ -13,7 +13,7 @@ email_install() {
   local client_config_src="${EM_ROOT}/data/email.env"
   local mta_config_src="${EM_ROOT}/data/gmail.env"
 
-  local email_setup_script="${SETUP_REPO_DIR}/src/mail.sh"
+  local email_setup_script="${SETUP_REPO_DIR}/src/mail"
   if [[ ! -f "${email_setup_script}" ]]; then
     logError "Email setup script not found"
     return 1
