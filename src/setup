@@ -306,9 +306,8 @@ local_xcp_config() {
     return 1
   fi
 
-  #TODO: NetData agent
-  if ! pkg_install "netdata"; then
-    logError "Could not install netdata"
+  if ! netdata_configure "qnap@demers.jeremfg.com" "sol.demers.jeremfg.com@gmail.com"; then
+    logError "Failed to configure netdata"
     return 1
   fi
 
@@ -387,6 +386,10 @@ fi
 # shellcheck disable=SC1091
 if ! source "${SETUP_REPO_DIR}/src/nut.sh"; then
   logFatal "Failed to import nut.sh"
+fi
+# shellcheck disable=SC1091
+if ! source "${SETUP_REPO_DIR}/src/netdata.sh"; then
+  logFatal "Failed to import netdata.sh"
 fi
 # shellcheck disable=SC1091
 if ! source "${XE_LIB_DIR}/src/xe_network.sh"; then

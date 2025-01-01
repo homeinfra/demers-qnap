@@ -103,25 +103,7 @@ the installation above.
 Local tasks:
 
 - [x] HAL Support
-  - [x] HAL button command
-  - [x] HAL led command
-  - [x] HAL temp command
-  - [x] HAL fan command
-  - [x] HAL beep command
-  - [ ] LCD + Buttons (NOT WORKING)
-- [x] Limit number of ssh-agent isntances created by .bashrc
-- [x] PCI Passthrough
-- [x] XCP-ng email notifications
-- [x] smartd test and monitoring alerts
-- [x] mdadm scrubbing and monitoring alerts
-- [x] Re-enable ACPI power button
-- [x] NUT UPS support
-- [x] Partitions
-- [ ] NetData (hardware monitoring)
-- [x] Local ISO storage
-- [x] Local VM storage
-- [x] Skeleton of a shutdown and startup script and daemon. Should
-hook full shutdown to USB_Copy button
+  - [x] LCD + Buttons (NOT WORKING)
 
 Horizon tasks:
 
