@@ -212,7 +212,7 @@ setup_ups() {
   # shellcheck disable=SC2034
   daemon_content=$(cat "${daemon_file}")
   # shellcheck disable=SC2034
-  user_content=$(cat "${user_file}")
+  user_content=$(sops -d "${user_file}")
   # shellcheck disable=SC2034
   monitor_content=$(cat "${monitor_file}")
   # shellcheck disable=SC2034
