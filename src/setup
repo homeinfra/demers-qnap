@@ -214,7 +214,7 @@ setup_ups() {
   # shellcheck disable=SC2034
   user_content=$(sops -d "${user_file}")
   # shellcheck disable=SC2034
-  monitor_content=$(cat "${monitor_file}")
+  monitor_content=$(sops -d "${monitor_file}")
   # shellcheck disable=SC2034
   scheduler_content=$(cat "${scheduler_file}")
 
