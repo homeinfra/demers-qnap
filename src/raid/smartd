@@ -193,7 +193,6 @@ EOF
     logWarn "smartd configuration was not found"
   fi
 
-  # shellcheck disable=SC2154
   local cfg_line="${SD_SMARTD_CONF} -m ${SYSADMIN} -M exec ${smart_file}"
   if ! grep -q "^${cfg_line}\$" "${cfg_file}"; then
     if grep -q "^DEVICESCAN.*" "${cfg_file}"; then
@@ -263,8 +262,12 @@ sd_test_alerts() {
     success=1
   fi
 
+  # shellcheck disable=SC2248
   return ${success}
 }
+
+# Variables loaded externally
+SYSADMIN=""
 
 ###########################
 ###### Startup logic ######
@@ -282,7 +285,6 @@ SD_ROOT=$(cd -P "$(dirname "${SD_SOURCE}")" >/dev/null 2>&1 && pwd)
 SD_ROOT=$(realpath "${SD_ROOT}/../..")
 
 # Import dependencies
-SETUP_REPO_DIR="${SD_ROOT}/external/setup"
 # shellcheck disable=SC1091
 if ! source "${PREFIX:-/usr/local}/lib/slf4.sh"; then
   echo "Failed to import slf4.sh"

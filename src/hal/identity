@@ -171,6 +171,7 @@ id_identify() {
     ;;
   esac
 
+  # shellcheck disable=SC2248
   return ${res}
 }
 
@@ -190,7 +191,6 @@ ID_ROOT=$(cd -P "$(dirname "${ID_SOURCE}")" >/dev/null 2>&1 && pwd)
 ID_ROOT=$(realpath "${ID_ROOT}/../..")
 
 # Import dependencies
-SETUP_REPO_DIR="${ID_ROOT}/external/setup"
 # shellcheck disable=SC1091
 if ! source "${PREFIX:-/usr/local}/lib/slf4.sh"; then
   echo "Failed to source slf4.sh"

@@ -77,3 +77,4 @@ repos:
     hooks:
       - id: pylama  # Python
         args: [-o, .pylama.ini]
+        exclude: src/hal/qnaplcd/__init__.py

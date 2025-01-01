@@ -18,7 +18,6 @@ email_install() {
     logError "Email setup script not found"
     return 1
   fi
-  # shellcheck disable=SC2154
   if ! BIN_DIR=${BIN_DIR} CONFIG_DIR=${CONFIG_DIR} "${email_setup_script}" configure "${client_config_src}" "${mta_config_src}"; then
     logError "Failed to configure email"
     return 1
@@ -34,6 +33,10 @@ email_install() {
 
   return 0
 }
+
+# Variables loaded externally
+BIN_DIR=""
+CONFIG_DIR=""
 
 ###########################
 ###### Startup logic ######

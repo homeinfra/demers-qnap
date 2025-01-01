@@ -177,12 +177,10 @@ EOF
   fi
 
   # Add email configurations
-  # shellcheck disable=SC2154
   if ! os_add_config "${cfg_file}" "MAILADDR ${SYSADMIN}"; then
     logError "Failed to add dest email to ${cfg_file}"
     return 1
   fi
-  # shellcheck disable=SC2154
   if ! os_add_config "${cfg_file}" "MAILFROM ${SENDER}"; then
     logError "Failed to add from email to ${cfg_file}"
     return 1
@@ -202,6 +200,10 @@ md_test() {
   fi
   return 0
 }
+
+# External variables loaded
+SYSADMIN=""
+SENDER=""
 
 ###########################
 ###### Startup logic ######

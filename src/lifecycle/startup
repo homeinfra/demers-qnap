@@ -14,11 +14,9 @@ startup_main() {
   fi
 
   # Startup complete
-  # shellcheck disable=SC2154
   if ! "${HOME_BIN}/qhal" lcd off; then
     error "Failed to turn off LCD"
   fi
-  # shellcheck disable=SC2154
   if ! "${HOME_BIN}/qhal" beep Online; then
     error "Failed to buzz indicating startup complete"
   fi
@@ -69,7 +67,6 @@ startup_init() {
   if ! config_load "${ST_ROOT}/data/local.env"; then
     logError "Failed to load local configuration"
   fi
-  # shellcheck disable=SC2154
   if ! config_load "${CONFIG_DIR}/email.env"; then
     logError "Failed to load QNAP configuration"
   fi
@@ -99,7 +96,8 @@ error() {
   fi
 }
 
-# Constants
+# Variables loaded externally
+HOME_BIN=""
 
 # XCP-ng message levels
 LVL_ERROR=1
@@ -140,7 +138,7 @@ fi
 if ! source "${ST_ROOT}/src/hal/qnap_hal"; then
   logFatal "Failed to import qnap_hal"
 fi
-# shellcheck disable=SC1091
+# shellcheck disable=SC1094
 if ! source "${ST_ROOT}/src/storage/storage.sh"; then
   logFatal "Failed to import storage.sh"
 fi

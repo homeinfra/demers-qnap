@@ -16,7 +16,6 @@ import socket
 import daemon
 import signal
 import logging
-import qnaplcd
 from portio import ioperm, inb, outb
 from dotenv import load_dotenv
 
@@ -512,8 +511,7 @@ class QhalClient:
     sound = next((s for s in sounds if s.name == arg), None)
 
     res = Popen([f"{os.environ['HOME_BIN']}/qnap_hal", 'hal_app', '--se_buzzer',
-                 f"enc_id=0,mode={sound.id}"], stdout=PIPE, stderr=PIPE,
-                 cwd=os.getcwd())
+                 f"enc_id=0,mode={sound.id}"], stdout=PIPE, stderr=PIPE, cwd=os.getcwd())
     stdout, stderr = res.communicate()
     if res.returncode:
       self.__log.error(f"Failed to play sound: {sound.name}. Return Code:"
@@ -522,6 +520,7 @@ class QhalClient:
 
 
 def lcd_set_state(log, ser, state):
+  """Set the LCD state."""
   log.info(f"Setting LCD state to: {state}")
   if state == 'on':
     ser.write(b'M^\1\n')
@@ -532,10 +531,12 @@ def lcd_set_state(log, ser, state):
     print(f"Unsupported LCD state: {state}")
     return
   print(f"LCD state set to: {state}")
-    
+
+
 def lcd_write(log, ser, line1, line2):
+  """Write to the LCD."""
   log.info(f"Writing to LCD: \"{line1}\" - \"{line2}\"")
-  
+
   # Init
   ser.write(b'M\0')
   initlcd = ser.read(4)
@@ -544,21 +545,21 @@ def lcd_write(log, ser, line1, line2):
   else:
     print("LCD is not ok")
     # return
-  
+
   # Line 1
   initrow = 'M\f\0\20'
-  writerow = '%s%s' % (initrow, line1.ljust(16)[:16])
+  writerow = '{}{}'.format(initrow, line1.ljust(16)[:16])
   ser.write(b'M^\1')
   ser.write(writerow.encode())
-  
+
   # Line 2
   initrow = 'M\f\1\20'
-  writerow = '%s%s' % (initrow, line2.ljust(16)[:16])
+  writerow = '{}{}'.format(initrow, line2.ljust(16)[:16])
   ser.write(b'M^\1')
   ser.write(writerow.encode())
-  
+
   print(f"LCD written: \"{line1}\" - \"{line2}\"")
-  
+
 
 def start_daemon(logger):
   """Start the daemon."""
@@ -651,15 +652,15 @@ def load_config(logger):
   """Load project configuration."""
   filename = f"{ROOT}/data/local.env"
   # Need to load file in memory to perform text replace
-  with open(filename, 'r') as file:
+  with open(filename) as file:
     data = file.read()
     if '@GIT_ROOT@' in data:
       # Get root of repo form the CWD
       git_root = get_git_root(logger)
-      data = data.replace ('@GIT_ROOT@', git_root)
-      
+      data = data.replace('@GIT_ROOT@', git_root)
+
     # Load the configuration
-    load_dotenv(stream= io.StringIO(data), override=True)
+    load_dotenv(stream=io.StringIO(data), override=True)
 
   # TODO: Support encrypted files
   # all_config_files = os.environ['LOCAL_CONFIG']
@@ -670,34 +671,74 @@ def load_config(logger):
   #     subprocess.run(["sops", "--decrypt", filename], stdout=file, check=True)
   #     load_dotenv(file.name, override=True)
 
+
 def get_git_root(logger):
   """Get the root of the git repository."""
-    
   cur_dir = os.path.realpath(os.path.abspath(__file__))
   while not os.path.isdir(cur_dir):
     if not cur_dir or cur_dir == os.sep:
       raise Exception("Found the ROOT while searching for git root")
     cur_dir = os.path.dirname(cur_dir)
-  
+
   # Ok, from this point we have a valid directory
   logger.info("Starting search for git root, starting from: %s", cur_dir)
   # Check if git is installed
   if run(["command", "-v", "git"], stdout=DEVNULL, stderr=DEVNULL).returncode != 0:
       raise Exception("Git not installed")
-    
-  if run(["git", "rev-parse", "--is-inside-work-tree"], cwd=cur_dir, stdout=DEVNULL, stderr=DEVNULL).returncode == 0:
-    res = run(['git', 'rev-parse', '--show-toplevel'], cwd=cur_dir, stdout=PIPE, stderr=PIPE, check=True)
+
+  if run(["git", "rev-parse", "--is-inside-work-tree"], cwd=cur_dir,
+         stdout=DEVNULL, stderr=DEVNULL).returncode == 0:
+    res = run(['git', 'rev-parse', '--show-toplevel'], cwd=cur_dir,
+              stdout=PIPE, stderr=PIPE, check=True)
     cur_dir = res.stdout.decode().strip()
     next_dir = os.path.dirname(cur_dir)
-    while run(["git", "rev-parse", "--is-inside-work-tree"], cwd=next_dir, stdout=DEVNULL, stderr=DEVNULL).returncode == 0:
-      res = run(['git', 'rev-parse', '--show-toplevel'], cwd=next_dir, stdout=PIPE, stderr=PIPE, check=True)
+    while run(["git", "rev-parse", "--is-inside-work-tree"], cwd=next_dir,
+              stdout=DEVNULL, stderr=DEVNULL).returncode == 0:
+      res = run(['git', 'rev-parse', '--show-toplevel'], cwd=next_dir,
+                stdout=PIPE, stderr=PIPE, check=True)
       cur_dir = res.stdout.decode().strip()
       next_dir = os.path.dirname(cur_dir)
     logger.info("Found git root: %s", cur_dir)
   else:
-    logger.warning("Not a git repository: %s", cur_dir)   
-    
+    logger.warning("Not a git repository: %s", cur_dir)
+
   return cur_dir
+
+
+def handle_lcd_command(logger, args):
+  """Handle the LCD command."""
+  try:
+    with Serial(port="/dev/ttyS1", baudrate=1200, timeout=1) as ser:
+      if args.lcd_command == 'on' or args.lcd_command == 'off':
+        lcd_set_state(logger, ser, args.lcd_command)
+      elif args.lcd_command == 'write':
+        lcd_write(logger, ser, args.line1, args.line2)
+  except Exception as e:
+    logger.error("Failed to open serial port: /dev/ttyS1", exc_info=e)
+
+
+def process_command(logger, args):
+  """Process the command."""
+  client = QhalClient(logger)
+  cmd = f"{' '.join(str(v) for v in vars(args).values() if v is not None)}"
+  logger.info(f"Received a valid command: {args}")
+  if args.command == 'start':
+    start_daemon(logger)
+  elif args.command == 'stop':
+    stop_daemon(logger)
+  elif args.command == 'status':
+    status_daemon(logger)
+  elif args.command == 'beep':
+    client.handle_beep_command(args.sound)
+  elif args.command == 'temp':
+    client.handle_temp_command(args.sensor)
+  elif args.command == 'fan':
+    client.handle_fan_command(args.fan)
+  elif args.command == 'lcd':
+    handle_lcd_command(logger, args)
+  else:
+    send_command_to_daemon(logger, cmd)
+
 
 def main():
   """Start execution here."""
@@ -706,42 +747,16 @@ def main():
   try:
     logger.info('== %s Started ==', Path(__file__).name)
 
-    client = QhalClient(logger)
-
     args = parse()
     if args is not None:
-      cmd = f"{' '.join(str(v) for v in vars(args).values() if v is not None)}"
-      logger.info(f"Received a valid command: {args}")
-      if args.command == 'start':
-        start_daemon(logger)
-      elif args.command == 'stop':
-        stop_daemon(logger)
-      elif args.command == 'status':
-        status_daemon(logger)
-      elif args.command == 'beep':
-        client.handle_beep_command(args.sound)
-      elif args.command == 'temp':
-        client.handle_temp_command(args.sensor)
-      elif args.command == 'fan':
-        client.handle_fan_command(args.fan)
-      elif args.command == 'lcd':
-        try:
-          with Serial(port="/dev/ttyS1", baudrate=1200, timeout=1) as ser:
-            if args.lcd_command == 'on' or args.lcd_command == 'off':
-              lcd_set_state(logger, ser, args.lcd_command)
-            elif args.lcd_command == 'write':
-              lcd_write(logger, ser, args.line1, args.line2)
-        except Exception as e:
-          logger.error(f"Failed to open serial port: {tty}", exc_info=e)          
-      else:
-        send_command_to_daemon(logger, cmd)
+      process_command(logger, args)
     else:
       logger.error('No arguments provided')
 
     logger.info('== %s Exited gracefully ==', Path(__file__).name)
   except Exception as e:
     logger.critical('== %s Failed ==', Path(__file__).name, exc_info=e)
-    
+
 
 def parse():
   """Parse the command line arguments."""
@@ -777,13 +792,13 @@ def parse():
 
   test_parser = subparsers.add_parser('test', help='Test Mode (Christmas Tree)')
   test_parser.add_argument('mode', choices=['on', 'off'], help='Test mode')
-  
+
   # LCD commands
   lcd_parser = subparsers.add_parser('lcd', help='Control the LCD panel')
   lcd_subparsers = lcd_parser.add_subparsers(dest='lcd_command', help='LCD command')
 
-  lcd_on_parser = lcd_subparsers.add_parser('on', help='Turn LCD on')
-  lcd_off_parser = lcd_subparsers.add_parser('off', help='Turn LCD off')
+  lcd_subparsers.add_parser('on', help='Turn LCD on')
+  lcd_subparsers.add_parser('off', help='Turn LCD off')
 
   lcd_write_parser = lcd_subparsers.add_parser('write', help='Write to LCD')
   lcd_write_parser.add_argument('line1', help='Text for line 1')

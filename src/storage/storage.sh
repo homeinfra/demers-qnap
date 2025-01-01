@@ -1,8 +1,7 @@
-#!/usr/bin/env bash
+# shellcheck shell=bash
 # SPDX-License-Identifier: MIT
 #
 # This script configures the persistent storage for the XCP-ng host
-
 
 if [[ -z ${GUARD_STORAGE_SH} ]]; then
   GUARD_STORAGE_SH=1
@@ -32,7 +31,7 @@ storage_setup() {
         res=$?
         ;;
       mounted)
-        if [[ ${res}  -eq 0 ]]; then
+        if [[ ${res} -eq 0 ]]; then
           logInfo "Storage configured succesfully"
         else
           logError "Failed to mount storage"
@@ -47,6 +46,7 @@ storage_setup() {
     fi
   done
 
+  # shellcheck disable=SC2248
   return ${res}
 }
 
@@ -66,7 +66,7 @@ storage_mount() {
     logInfo "Storage already mounted"
     return 0
     ;;
-  *) 
+  *)
     logError "Invalid state for storage: ${STOR_STATE}"
     return 1
     ;;
@@ -102,12 +102,12 @@ storage_mount() {
     return 1
   fi
 
-  # Only support the case where stprage isn't at the beggining of the drive. We need to mount a loop device for it
+  # Only support the case where storage isn't at the beginning of the drive. We need to mount a loop device for it
   local iso_loop_device
   if ! disk_create_loop iso_loop_device "${ISO_STOR_DRIVE}" "${ISO_STOR_START}" "${ISO_STOR_SIZE}"; then
     logError "Failed to create loop device for ISO storage"
     return 1
-  elif ! config_save "${STOR_FILE}" ISO_STOR_LOOP "${iso_loop_device}"; then
+  elif ! config_save "${STOR_FILE}" "ISO_STOR_LOOP" "${iso_loop_device}"; then
     logError "Failed to save ISO_STOR_LOOP"
     return 1
   elif ! mount "/dev/${iso_loop_device}" "${ISO_STOR_PATH}"; then
@@ -133,7 +133,7 @@ storage_mount() {
 
 storage_unmount() {
   STOR_FILE="${CONFIG_DIR}/storage.env"
-    if ! config_load "${STOR_FILE}"; then
+  if ! config_load "${STOR_FILE}"; then
     logError "Failed to load storage configuration"
     return 1
   fi
@@ -209,7 +209,7 @@ storage_create() {
     logError "Missing configuration for VM storage"
     return 1
   fi
-  if [[ ${VM_STOR_DRIVE1} == ${VM_STOR_DRIVE2} ]]; then
+  if [[ "${VM_STOR_DRIVE1}" == "${VM_STOR_DRIVE2}" ]]; then
     logError "VM storage drives are the same"
     return 1
   fi
@@ -222,9 +222,9 @@ storage_create() {
     return 1
   fi
 
-    local vm_loop_device
-    local iso_loop_device
-    local res=0
+  local vm_loop_device
+  local iso_loop_device
+  local res=0
 
   # If we reach here, we've confirmed the need to create a loop device for drive 2
   if ! disk_create_loop vm_loop_device "${VM_STOR_DRIVE2}" "${VM_STOR_DRIVE2_START}" "${VM_STOR_SIZE}"; then
@@ -321,6 +321,7 @@ storage_create() {
     logInfo "ISO storage disconnected"
   fi
 
+  # shellcheck disable=SC2248
   return ${res}
 }
 
@@ -358,37 +359,37 @@ storage_design() {
   for drive in "${local_drives[@]}"; do
     # Get the size of the drive
     if disk_drive_size nb_sectors size_sectors phys_sectors "${drive}"; then
-      drive_sectors["$drive"]="${nb_sectors}"
-      drive_sector_sizes["$drive"]="${size_sectors}"
-      drive_physical_sectors["$drive"]="${phys_sectors}"
+      drive_sectors["${drive}"]="${nb_sectors}"
+      drive_sector_sizes["${drive}"]="${size_sectors}"
+      drive_physical_sectors["${drive}"]="${phys_sectors}"
     else
       logError "Failed to get size of: ${drive}"
       return 1
     fi
     # Get available space
     if disk_get_available start_sector end_sector "${boot_partition}" "${drive}"; then
-      drive_start_sectors["$drive"]="${start_sector}"
-      drive_end_sectors["$drive"]="${end_sector}"
+      drive_start_sectors["${drive}"]="${start_sector}"
+      drive_end_sectors["${drive}"]="${end_sector}"
     else
       logError "Failed to get available space on ${drive}"
       return 1
     fi
   done
 
-  logInfo << EOF
+  logInfo <<EOF
 Summary for all drives:
 $(for drive in "${local_drives[@]}"; do
-  __avail=$(( (${drive_end_sectors[$drive]} - ${drive_start_sectors[$drive]}) ))
-  __availGiB=$(( ${__avail} * 512 / 1024 / 1024 / 1024 ))
-  echo ""
-  echo "Drive: ${drive}"
-  echo "  Size: ${drive_sectors[$drive]} sectors"
-  echo "  Sector size: ${drive_sector_sizes[$drive]}"
-  echo "  Physical sector size: ${drive_physical_sectors[$drive]}"
-  echo "  Available space: ${__avail} sectors (${__availGiB} GiB)"
-  echo "    Start sector     : ${drive_start_sectors[$drive]}"
-  echo "    End sector       : ${drive_end_sectors[$drive]}"
-done)
+    __avail=$((${drive_end_sectors[${drive}]} - ${drive_start_sectors[${drive}]}))
+    __availGiB=$((__avail * 512 / 1024 / 1024 / 1024))
+    echo ""
+    echo "Drive: ${drive}"
+    echo "  Size: ${drive_sectors[${drive}]} sectors"
+    echo "  Sector size: ${drive_sector_sizes[${drive}]}"
+    echo "  Physical sector size: ${drive_physical_sectors[${drive}]}"
+    echo "  Available space: ${__avail} sectors (${__availGiB} GiB)"
+    echo "    Start sector     : ${drive_start_sectors[${drive}]}"
+    echo "    End sector       : ${drive_end_sectors[${drive}]}"
+  done)
 EOF
 
   local biggest_drive
@@ -396,36 +397,36 @@ EOF
   local biggest_size=0
   local second_biggest_size=0
   for drive in "${local_drives[@]}"; do
-    __avail=$(( (${drive_end_sectors[$drive]} - ${drive_start_sectors[$drive]}) ))
-    if (( ${__avail} > biggest_size )); then
+    __avail=$((${drive_end_sectors[${drive}]} - ${drive_start_sectors[${drive}]}))
+    if ((__avail > biggest_size)); then
       second_biggest_size=${biggest_size}
       second_biggest_drive=${biggest_drive}
       biggest_size=${__avail}
       biggest_drive=${drive}
-    elif (( ${__avail} > second_biggest_size )); then
+    elif ((__avail > second_biggest_size)); then
       second_biggest_size=${__avail}
       second_biggest_drive=${drive}
     fi
   done
 
-  logInfo << EOF
+  logInfo <<EOF
 The biggest drive is ${biggest_drive} with ${biggest_size} sectors
 The second biggest drive is ${second_biggest_drive} with ${second_biggest_size} sectors
 EOF
 
-  if [[ ${second_biggest_size} -lt $(( 10 * 1024 * 1024 * 1024 / 512 )) ]]; then
+  if [[ ${second_biggest_size} -lt $((10 * 1024 * 1024 * 1024 / 512)) ]]; then
     logError "We need at least two drives with 10+ GiB of space available"
     return 1
   fi
 
   # Curreny only support the second device being leftover space from a raid array
-  if [[ ${drive_start_sectors[$biggest_drive]} -le 0 ]]; then
+  if [[ ${drive_start_sectors[${biggest_drive}]} -le 0 ]]; then
     logError "Don't know how to configure with an empty drive"
     return 1
   fi
 
   # Currently only support the first device being an empty drive
-  if [[ ${drive_start_sectors[$second_biggest_drive]} -ne 0 ]]; then
+  if [[ ${drive_start_sectors[${second_biggest_drive}]} -ne 0 ]]; then
     logError "Can only configure using an empty drive"
     return 1
   fi
@@ -437,10 +438,10 @@ EOF
   elif ! config_save "${STOR_FILE}" VM_STOR_DRIVE2 "${biggest_drive}"; then
     logError "Failed to save VM_STOR_DRIVE2"
     return 1
-  elif ! config_save "${STOR_FILE}" VM_STOR_DRIVE1_START "${drive_start_sectors[$second_biggest_drive]}"; then
+  elif ! config_save "${STOR_FILE}" VM_STOR_DRIVE1_START "${drive_start_sectors[${second_biggest_drive}]}"; then
     logError "Failed to save VM_STOR_DRIVE1_START"
     return 1
-  elif ! config_save "${STOR_FILE}" VM_STOR_DRIVE2_START "${drive_start_sectors[$biggest_drive]}"; then
+  elif ! config_save "${STOR_FILE}" VM_STOR_DRIVE2_START "${drive_start_sectors[${biggest_drive}]}"; then
     logError "Failed to save VM_STOR_DRIVE2_START"
     return 1
   elif ! config_save "${STOR_FILE}" VM_STOR_SIZE "${second_biggest_size}"; then
@@ -457,29 +458,29 @@ EOF
   fi
 
   # Adjust Biggest drive
-  drive_start_sectors[$biggest_drive]=$(( ${drive_start_sectors[$biggest_drive]} + ${second_biggest_size} ))
+  drive_start_sectors[${biggest_drive}]=$((${drive_start_sectors[${biggest_drive}]} + second_biggest_size))
 
   # Calculate parameters for ISO_STOR, alignned to the next physical sector
-  local iso_store_start=${drive_start_sectors[$biggest_drive]}
-  local align_value=$(( ${drive_physical_sectors[$biggest_drive]} / 512 ))
-  if (( ${align_value} * 512 !=  ${drive_physical_sectors[$biggest_drive]} )); then
+  local iso_store_start=${drive_start_sectors[${biggest_drive}]}
+  local align_value=$((${drive_physical_sectors[${biggest_drive}]} / 512))
+  if ((align_value * 512 != ${drive_physical_sectors[${biggest_drive}]})); then
     logWarn "Physical sector size is not a multiple of 512"
   else
-    iso_store_start=$(( ${iso_store_start} + ${align_value} - (${iso_store_start} % ${align_value}) ))
+    iso_store_start=$((iso_store_start + align_value - (iso_store_start % align_value)))
   fi
-  local iso_store_size=$(( ${drive_end_sectors[$biggest_drive]} - ${iso_store_start} ))
+  local iso_store_size=$((${drive_end_sectors[${biggest_drive}]} - iso_store_start))
 
   # Make sure ISO storage is at least 5 GiB in size
-  if [[ ${iso_store_size} -lt $(( 5 * 1024 * 1024 * 1024 / 512 )) ]]; then
+  if [[ ${iso_store_size} -lt $((5 * 1024 * 1024 * 1024 / 512)) ]]; then
     logError "Not enough space for ISO storage"
     return 1
   fi
 
-  logInfo << EOF
+  logInfo <<EOF
 ISO storage configuration:
   Device: ${biggest_drive}
   Start sector: ${iso_store_start}
-  Size: ${iso_store_size} sectors ($(( ${iso_store_size} * 512 / 1024 / 1024 / 1024 )) GiB)
+  Size: ${iso_store_size} sectors ($((iso_store_size * 512 / 1024 / 1024 / 1024)) GiB)
 EOF
 
   # Save the configuration for the ISO storage drive
@@ -512,6 +513,13 @@ EOF
 
   return 0
 }
+
+# External variables loaded
+CONFIG_DIR=""
+VM_STOR_DRIVE=""
+ISO_STOR_PATH=""
+ISO_STOR_NAME=""
+VM_STOR_NAME=""
 
 ###########################
 ###### Startup logic ######

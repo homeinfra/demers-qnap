@@ -41,7 +41,6 @@ nut_init() {
     logError "Failed to load local configuration"
     return 1
   fi
-  # shellcheck disable=SC2154
   if ! config_load "${CONFIG_DIR}/email.env"; then
     logError "Failed to load QNAP configuration"
     return 1
@@ -51,9 +50,7 @@ nut_init() {
 # Handle NUT event
 # As documented by the NOTIFYCMD https://networkupstools.org/docs/man/upsmon.html
 nut_event() {
-  # shellcheck disable=SC2154
   local not_type="${NOTIFYTYPE}"
-  # shellcheck disable=SC2154
   local not_ups="${UPSNAME}"
   local not_msg="${1}"
 
@@ -65,7 +62,6 @@ nut_event() {
       error "Failed to invoke upssched for ${not_type}"
     fi
     notify_event "${not_msg}"
-    # shellcheck disable=SC2154
     "${HOME_BIN}/qhal" beep Online
     ;;
   ONBATT)
@@ -73,7 +69,6 @@ nut_event() {
       error "Failed to invoke upssched for ${not_type}"
     fi
     notify_event "${not_msg}"
-    # shellcheck disable=SC2154
     "${HOME_BIN}/qhal" beep Outage
     ;;
   LOWBATT)
@@ -243,7 +238,6 @@ Logging a UPS event:
 ${UPS_MSG}
 END
 
-  # shellcheck disable=SC2154
   if ! echo "${UPS_MSG}" | ${MAIL_CMD} -s "${UPS_SUB}" -r "${SENDER}" "${SYSADMIN}"; then
     logError "Failed to send UPS email"
   else
@@ -382,6 +376,15 @@ error() {
   fi
 }
 
+# External variables loaded
+CONFIG_DIR=""
+NOTIFYTYPE=""
+UPSNAME=""
+HOME_BIN=""
+MAIL_CMD=""
+SENDER=""
+SYSADMIN=""
+
 # Constants
 SCHED_CMD="/usr/sbin/upssched"
 
@@ -412,7 +415,6 @@ UP_ROOT=$(cd -P "$(dirname "${UP_SOURCE}")" >/dev/null 2>&1 && pwd)
 UP_ROOT=$(realpath "${UP_ROOT}/../..")
 
 # Import dependencies
-SETUP_REPO_DIR="${UP_ROOT}/external/setup"
 # shellcheck disable=SC1091
 if ! source "${PREFIX:-/usr/local}/lib/slf4.sh"; then
   echo "Failed to import slf4.sh"

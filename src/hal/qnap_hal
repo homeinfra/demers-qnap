@@ -98,6 +98,7 @@ qnap_hal_install() {
     return 1
   fi
 
+  # shellcheck disable=SC2248
   return ${res}
 }
 
@@ -107,10 +108,11 @@ qnap_hal_init() {
   local cmd=("hal_daemon" "-f")
 
   # Skip if already initialized once
-if [[ -f "${QN_HAL_INIT_FILE}" ]]; then
-  logInfo "HAL already initialized"
-  return ${ret_value}
-fi
+  if [[ -f "${QN_HAL_INIT_FILE}" ]]; then
+    logInfo "HAL already initialized"
+    # shellcheck disable=SC2248
+    return ${ret_value}
+  fi
 
   if ! umount "${install_root}/tmp" >/dev/null 2>&1; then
     logWarn "Failed to unmount ${install_root}/tmp"
@@ -164,6 +166,7 @@ fi
 
   # Clean up (best effort)
   kill -9 "$(pidof hal_daemon || true)"
+  # shellcheck disable=SC2248
   return ${ret_value}
 }
 
@@ -190,6 +193,7 @@ qnap_hal_invoke() {
   res=$?
   logTrace "Exceution completed: ${res}"
 
+  # shellcheck disable=SC2248
   return ${res}
 }
 

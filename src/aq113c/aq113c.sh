@@ -19,7 +19,7 @@ aq113c_install() {
     AQ_PRESENT=1
     logInfo "AQ113C driver already installed. Checking version..."
     local version
-    version=$(modinfo "${AQ_KO_NAME}" | grep "^version:" | awk '{print $2}')
+    version=$(modinfo "${AQ_KO_NAME}" | grep "^version:" | awk '{print $2}' || true)
     if [[ "${version}" == "${AQ_VERSION}"* ]]; then
       logInfo "AQ113C driver is up to date"
       return 0
@@ -27,7 +27,7 @@ aq113c_install() {
       logWarn "AQ113C driver is out of date. Expected version ${AQ_VERSION}, found ${version}"
     fi
   fi
-  
+
   # If we reach here, the driver needs to be installed
   local dir
   if ! aq113c_download dir; then
@@ -49,8 +49,8 @@ aq113c_install() {
     res=1
   fi
   if [[ ${res} -eq 0 ]] && ! mkdir -p "${src_dir}"; then
-      logError "Failed to create source directory"
-      res=1
+    logError "Failed to create source directory"
+    res=1
   fi
   if [[ ${res} -eq 0 ]] && ! tar -xzf "${src_arch}" -C "${src_dir}"; then
     logError "Failed to extract source files"
@@ -86,6 +86,7 @@ aq113c_install() {
   popd &>/dev/null || true
   popd &>/dev/null || true
 
+  # shellcheck disable=SC2248
   return ${res}
 }
 

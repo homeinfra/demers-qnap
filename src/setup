@@ -6,15 +6,15 @@
 # Currently tested on XCP-ng 8.3 (CentOS)
 
 setup() {
-  LOG_CONSOLE=1
-  logSetLevel ${LEVEL_ALL}
+  export LOG_CONSOLE=1
+  logSetLevel "${LEVEL_ALL}"
 
   # Load install configuration
   if ! config_load "${DQ_ROOT}/data/local.env"; then
     logError "Failed to load install configuration"
     return 1
   fi
-  
+
   if ! setup_dependencies; then
     logError "Failed to setup dependencies"
     return 1
@@ -78,7 +78,7 @@ setup_host_hardware() {
     return 1
   fi
 
-    if ! storage_setup; then
+  if ! storage_setup; then
     logError "Failed to setup storage"
     return 1
   fi
@@ -245,7 +245,6 @@ validate_hardware() {
   # Validate network interfaces
   local macs=()
   local nic
-  # shellcheck disable=SC2154
   for nic in ${NICS}; do
     nic="${nic}_MAC"
     if [[ -n "${!nic}" ]]; then
@@ -255,7 +254,7 @@ validate_hardware() {
       return 1
     fi
   done
-  
+
   if xe_validate_nic "${macs[@]}"; then
     logInfo "All network interfaces exist"
   else
@@ -269,7 +268,6 @@ validate_hardware() {
 check_system() {
   local name
   if id_identify name; then
-    # shellcheck disable=SC2154
     if [[ "${name}" == "${QN_NAME}" ]]; then
       return 0
     fi
@@ -316,6 +314,7 @@ local_xcp_config() {
 
 external_depends() {
   if ! command -v bpkg &>/dev/null; then
+    # shellcheck disable=SC2312
     if ! curl -sLo- https://get.bpkg.sh | bash; then
       echo "Failed to install bpkg"
       return 1
@@ -336,6 +335,11 @@ external_depends() {
     fi
   fi
 }
+
+# Variables loaded externally
+LEVEL_ALL=""
+NICS=""
+QN_NAME=""
 
 # Constants
 AGE_KEY="homeinfra_demers"
@@ -422,6 +426,7 @@ fi
 if ! source "${DQ_ROOT}/src/iommu/passthrough.sh"; then
   logFatal "Failed to import passthrough.sh"
 fi
+# shellcheck disable=SC1094
 if ! source "${DQ_ROOT}/src/storage/storage.sh"; then
   logFatal "Failed to import storage.sh"
 fi

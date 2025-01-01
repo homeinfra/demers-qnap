@@ -18,7 +18,6 @@ shutdown_main() {
   fi
   if [[ "${SH_CMD}" == "${SHUTDOWN_LOCAL}" ]]; then
     info "Shutting down locally"
-    # shellcheck disable=SC2154
     if ! "${HOME_BIN}/qhal" beep Error; then
       logError "Failed to buzz indicating local shutdown"
     fi
@@ -76,7 +75,6 @@ shutdown_init() {
   if ! config_load "${SH_ROOT}/data/local.env"; then
     logError "Failed to load local configuration"
   fi
-  # shellcheck disable=SC2154
   if ! config_load "${CONFIG_DIR}/email.env"; then
     logError "Failed to load QNAP configuration"
   fi
@@ -193,6 +191,9 @@ error() {
   fi
 }
 
+# Variables loaded externally
+HOME_BIN=""
+
 # Constants
 SHUTDOWN_CMD_FILE="/tmp/shutdown.cmd"
 SHUTDOWN_LOCAL="local"
@@ -225,8 +226,6 @@ SH_ROOT=$(cd -P "$(dirname "${SH_SOURCE}")" >/dev/null 2>&1 && pwd)
 SH_ROOT=$(realpath "${SH_ROOT}/../..")
 
 # Import dependencies
-export LOG_CONSOLE=0
-SETUP_REPO_DIR="${SH_ROOT}/external/setup"
 # shellcheck disable=SC1091
 if ! source "${PREFIX:-/usr/local}/lib/slf4.sh"; then
   echo "Failed to import slf4.sh"
@@ -236,7 +235,7 @@ fi
 if ! source "${PREFIX:-/usr/local}/lib/config.sh"; then
   logFatal "Failed to import config.sh"
 fi
-# shellcheck disable=SC1091
+# shellcheck disable=SC1094
 if ! source "${SH_ROOT}/src/storage/storage.sh"; then
   logFatal "Failed to import storage.sh"
 fi

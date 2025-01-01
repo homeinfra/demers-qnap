@@ -63,7 +63,6 @@ PI_ROOT=$(cd -P "$(dirname "${PI_SOURCE}")" >/dev/null 2>&1 && pwd)
 PI_ROOT=$(realpath "${PI_ROOT}/../..")
 
 # Import dependencies
-SETUP_REPO_DIR="${PI_ROOT}/external/setup"
 # shellcheck disable=SC1091
 if ! source "${PREFIX:-/usr/local}/lib/slf4.sh"; then
   echo "Failed to import slf4.sh"

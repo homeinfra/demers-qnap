@@ -192,7 +192,6 @@ DM_ROOT=$(cd -P "$(dirname "${DM_SOURCE}")" >/dev/null 2>&1 && pwd)
 DM_ROOT=$(realpath "${DM_ROOT}/../..")
 
 # Import dependencies
-SETUP_REPO_DIR="${DM_ROOT}/external/setup"
 # shellcheck disable=SC1091
 if ! source "${PREFIX:-/usr/local}/lib/slf4.sh"; then
   echo "Failed to import slf4.sh"
