@@ -31,7 +31,6 @@ repos:
     rev: 3.0.0  # Spellcheck uses version 0.9.0 installed locally
     hooks:
       - id: shellcheck  # Shell
-        # args: ["-e", "SC1072,SC1073"]
         args: [--enable, all, -x]
       - id: git-check
       - id: git-dirty

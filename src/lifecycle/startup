@@ -46,10 +46,8 @@ hardware_init() {
 }
 
 startup_init() {
-  if ! command -v xe &>/dev/null; then
-    logError "XCP-ng tools not found"
-    return 1
-  elif ! res=$(xe host-list name-label="$(hostname || true)" --minimal); then
+  local res
+  if ! xe_exec res host-list name-label="$(hostname || true)" --minimal; then
     logError "Failed to get host"
     exit 1
   elif [[ -z "${res}" ]]; then
@@ -75,7 +73,7 @@ startup_init() {
 info() {
   logInfo "$1"
 
-  if ! xe message-create name="Startup" body="${1}" priority="${LVL_INFO}" host-uuid="${HOST_ID}"; then
+  if ! xe_exec null message-create name="Startup" body="${1}" priority="${LVL_INFO}" host-uuid="${HOST_ID}"; then
     logError "Failed to send notification to XCP-ng"
   fi
 }
@@ -83,7 +81,7 @@ info() {
 warn() {
   logWarn "$1"
 
-  if ! xe message-create name="Startup" body="${1}" priority="${LVL_WARN}" host-uuid="${HOST_ID}"; then
+  if ! xe_exec null message-create name="Startup" body="${1}" priority="${LVL_WARN}" host-uuid="${HOST_ID}"; then
     logError "Failed to send notification to XCP-ng"
   fi
 }
@@ -91,7 +89,7 @@ warn() {
 error() {
   logError "$1"
 
-  if ! xe message-create name="Startup" body="${1}" priority="${LVL_ERROR}" host-uuid="${HOST_ID}"; then
+  if ! xe_exec null message-create name="Startup" body="${1}" priority="${LVL_ERROR}" host-uuid="${HOST_ID}"; then
     logError "Failed to send notification to XCP-ng"
   fi
 }
@@ -141,6 +139,9 @@ fi
 # shellcheck disable=SC1094
 if ! source "${ST_ROOT}/src/storage/storage.sh"; then
   logFatal "Failed to import storage.sh"
+fi
+if ! source "${ST_ROOT}/external/xapi.sh/src/xe_utils.sh"; then
+  logFatal "Failed to import xe_utils.sh"
 fi
 
 if [[ -p /dev/stdin ]] && [[ -z ${BASH_SOURCE[0]} ]]; then
