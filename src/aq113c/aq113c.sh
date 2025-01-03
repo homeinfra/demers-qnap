@@ -181,10 +181,19 @@ done
 AQ_ROOT=$(cd -P "$(dirname "${AQ_SOURCE}")" >/dev/null 2>&1 && pwd)
 AQ_ROOT=$(realpath "${AQ_ROOT}/../..")
 
+# Determine BPKG's global prefix
+if [[ -z "${PREFIX}" ]]; then
+  if [[ $(id -u || true) -eq 0 ]]; then
+    PREFIX="/usr/local"
+  else
+    PREFIX="${HOME}/.local"
+  fi
+fi
+
 # Import dependencies
 SETUP_REPO_DIR="${AQ_ROOT}/external/setup"
 # shellcheck disable=SC1091
-if ! source "${PREFIX:-/usr/local}/lib/slf4.sh"; then
+if ! source "${PREFIX}/lib/slf4.sh"; then
   echo "Failed to import slf4.sh"
   exit 1
 fi

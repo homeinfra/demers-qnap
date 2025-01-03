@@ -321,14 +321,14 @@ external_depends() {
     fi
   fi
 
-  if [[ ! -f "${PREFIX:-/usr/local}/lib/slf4.sh" ]]; then
+  if [[ ! -f "${PREFIX}/lib/slf4.sh" ]]; then
     if ! bpkg install -g jeremfg/slf4.sh; then
       echo "Failed to install slf4.sh"
       return 1
     fi
   fi
 
-  if [[ ! -f "${PREFIX:-/usr/local}/lib/config.sh" ]]; then
+  if [[ ! -f "${PREFIX}/lib/config.sh" ]]; then
     if ! bpkg install -g jeremfg/config.sh; then
       echo "Failed to install config.sh"
       return 1
@@ -360,6 +360,15 @@ done
 DQ_ROOT=$(cd -P "$(dirname "${DQ_SOURCE}")" >/dev/null 2>&1 && pwd)
 DQ_ROOT=$(realpath "${DQ_ROOT}/..")
 
+# Determine BPKG's global prefix
+if [[ -z "${PREFIX}" ]]; then
+  if [[ $(id -u || true) -eq 0 ]]; then
+    PREFIX="/usr/local"
+  else
+    PREFIX="${HOME}/.local"
+  fi
+fi
+
 # Instalal external dependencies
 external_depends
 
@@ -367,12 +376,12 @@ external_depends
 SETUP_REPO_DIR="${DQ_ROOT}/external/setup"
 XE_LIB_DIR="${DQ_ROOT}/external/xapi.sh"
 # shellcheck disable=SC1091
-if ! source "${PREFIX:-/usr/local}/lib/slf4.sh"; then
+if ! source "${PREFIX}/lib/slf4.sh"; then
   echo "Failed to import slf4.sh"
   exit 1
 fi
 # shellcheck disable=SC1091
-if ! source "${PREFIX:-/usr/local}/lib/config.sh"; then
+if ! source "${PREFIX}/lib/config.sh"; then
   logFatal "Failed to import config.sh"
 fi
 # shellcheck disable=SC1091

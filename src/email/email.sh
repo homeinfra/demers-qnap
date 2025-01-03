@@ -53,11 +53,20 @@ done
 EM_ROOT=$(cd -P "$(dirname "${EM_SOURCE}")" >/dev/null 2>&1 && pwd)
 EM_ROOT=$(realpath "${EM_ROOT}/../..")
 
+# Determine BPKG's global prefix
+if [[ -z "${PREFIX}" ]]; then
+  if [[ $(id -u || true) -eq 0 ]]; then
+    PREFIX="/usr/local"
+  else
+    PREFIX="${HOME}/.local"
+  fi
+fi
+
 # Import dependencies
 SETUP_REPO_DIR="${EM_ROOT}/external/setup"
 XE_LIB_DIR="${EM_ROOT}/external/xapi.sh"
 # shellcheck disable=SC1091
-if ! source "${PREFIX:-/usr/local}/lib/slf4.sh"; then
+if ! source "${PREFIX}/lib/slf4.sh"; then
   echo "Failed to import slf4.sh"
   exit 1
 fi
