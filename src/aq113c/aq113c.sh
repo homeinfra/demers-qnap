@@ -69,10 +69,19 @@ aq113c_install() {
     res=1
   fi
   if [[ ${res} -eq 0 ]] && [[ "${AQ_PRESENT}" -eq 1 ]]; then
-    logInfo "Unloading existing driver"
-    if ! rmmod "${AQ_KO_NAME}"; then
-      logError "Failed to unload existing driver"
+    local var
+    # Check if we need to unload the existing kernel module
+    if ! var=$(lsmod); then
+      logError "Failed to list loaded kernel modules"
       res=1
+    elif echo "${var}" | grep -q "^${AQ_KO_NAME}"; then
+      logInfo "Unloading existing driver"
+      if ! rmmod "${AQ_KO_NAME}"; then
+        logError "Failed to unload existing driver"
+        res=1
+      fi
+    else
+      logWarn "Existing kernel module ${AQ_KO_NAME} is not loaded"
     fi
   fi
   if [[ ${res} -eq 0 ]] && ! make load; then
