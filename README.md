@@ -9,7 +9,7 @@ The server can be configured by calling this one-liner:
 
 <!-- markdownlint-disable MD013 -->
 ```bash
-wget -qO- 'https://raw.githubusercontent.com/jeremfg/setup/refs/heads/feature/linux-setup/src/setup_git' | bash -s -- git@github.com:homeinfra/demers-qnap.git feature/initial -- ./src/setup
+wget -qO- 'https://raw.githubusercontent.com/jeremfg/setup/refs/heads/main/src/setup_git' | bash -s -- git@github.com:homeinfra/demers-qnap.git -- ./src/setup
 ```
 <!-- markdownlint-enable MD013 -->
 
