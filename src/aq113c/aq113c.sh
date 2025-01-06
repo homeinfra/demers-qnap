@@ -60,6 +60,10 @@ aq113c_install() {
     logError "Failed to change directory to ${dir}"
     res=1
   fi
+  if [[ ${res} -eq 0 ]] && ! mkdir -p "/lib/modules/$(uname -r || true)/build"; then
+    logError "Failed to create the build directory" # Marvell bug?
+    res=1
+  fi
   if [[ ${res} -eq 0 ]] && ! make; then
     logError "Failed to build AQ113C driver"
     res=1
