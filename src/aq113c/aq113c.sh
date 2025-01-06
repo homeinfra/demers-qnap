@@ -60,7 +60,7 @@ aq113c_install() {
     logError "Failed to change directory to ${dir}"
     res=1
   fi
-  if [[ ${res} -eq 0 ]] && ! pkg_install linux-headers build-essential; then
+  if [[ ${res} -eq 0 ]] && ! pkg_install kernel-devel; then
     logError "Could not install requirements"
     res=1
   fi
