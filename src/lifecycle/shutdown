@@ -40,7 +40,9 @@ shutdown_local() {
   if ! storage_unmount; then
     error "Failed to unmount storage"
   fi
-  echo "Local shutdown"
+  if ! qnap_hal_deinit; then
+    error "Failed to deinitialize HAL"
+  fi
 }
 
 shutdown_all() {
@@ -57,13 +59,10 @@ shutdown_init() {
   local res
   if ! xe_exec res host-list name-label="$(hostname || true)" --minimal; then
     logError "Failed to get host"
-    exit 1
   elif [[ -z "${res}" ]]; then
     logError "Host not found"
-    exit 1
   elif [[ "${res}" == *","* ]]; then
     logError "Multiple hosts found"
-    exit 1
   else
     logTrace "Host identified: ${res}"
     HOST_ID=${res}
@@ -241,6 +240,10 @@ fi
 # shellcheck disable=SC1091
 if ! source "${PREFIX}/lib/config.sh"; then
   logFatal "Failed to import config.sh"
+fi
+# shellcheck disable=SC1091
+if ! source "${SH_ROOT}/src/hal/qnap_hal"; then
+  logFatal "Failed to import qnap_hal"
 fi
 # shellcheck disable=SC1094
 if ! source "${SH_ROOT}/src/storage/storage.sh"; then

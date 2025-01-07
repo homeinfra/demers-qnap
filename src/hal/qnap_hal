@@ -102,6 +102,16 @@ qnap_hal_install() {
   return ${res}
 }
 
+qnap_hal_deinit() {
+  if [[ -f "${QN_HAL_INIT_FILE}" ]]; then
+    if ! rm -f "${QN_HAL_INIT_FILE}"; then
+      logError "Failed to remove ${QN_HAL_INIT_FILE}"
+      return 1
+    fi
+  fi
+  return 0
+}
+
 qnap_hal_init() {
   local ret_value=0
   local install_root="${BIN_DIR}/hal"
