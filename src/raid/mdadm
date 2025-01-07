@@ -147,7 +147,7 @@ else
   if [[ \$? -ne 0 ]]; then
     logError "Failed to send SMART notification to XCP-ng"
   else
-    logInfo "SMART notification sent to XCP-ng"
+    logInfo "RAID notification sent to XCP-ng"
   fi
 fi
 
