@@ -318,6 +318,8 @@ storage_create() {
     logInfo "Loop device created for VM storage: ${vm_loop_device}"
   fi
 
+  # TODO: Do a dd on the first 34 sectors of both devices, as mdadm might complain during array creation
+
   # Create the RAID1 array
   if ! disk_create_raid1 "${VM_STOR_DRIVE}" "${VM_STOR_DRIVE1}" "${vm_loop_device}"; then
     logError "Failed to create RAID1 array for VM storage"
