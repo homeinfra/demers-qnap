@@ -290,19 +290,24 @@ storage_unmount() {
 
 storage_create() {
   if [[ -z ${VM_STOR_DRIVE1} ]] || [[ -z ${VM_STOR_DRIVE2} ]] || [[ -z ${VM_STOR_DRIVE1_START} ]] || [[ -z ${VM_STOR_DRIVE2_START} ]] || [[ -z ${VM_STOR_SIZE} ]]; then
+    # Are we given parameters for VM Storage
     logError "Missing configuration for VM storage"
     return 1
-  fi
-  if [[ "${VM_STOR_DRIVE1}" == "${VM_STOR_DRIVE2}" ]]; then
+  elif [[ "${VM_STOR_DRIVE1}" == "${VM_STOR_DRIVE2}" ]]; then
+    # Make sure VM Storage consist of two different drives (for RAID1)
     logError "VM storage drives are the same"
     return 1
-  fi
-  if [[ ${VM_STOR_DRIVE1_START} -ne 0 ]] || [[ ${VM_STOR_DRIVE2_START} -le 0 ]] || [[ ${VM_STOR_SIZE} -le 0 ]]; then
+  elif [[ ${VM_STOR_DRIVE1_START} -ne 0 ]] || [[ ${VM_STOR_DRIVE2_START} -le 0 ]] || [[ ${VM_STOR_SIZE} -le 0 ]]; then
+    # Currently we only support the scenario where DRIVE1 is at the beginning of the drive and DRIVE2 isn't
     logError "Invalid configuration for VM storage"
     return 1
-  fi
-  if [[ -z ${ISO_STOR_DRIVE} ]] || [[ -z ${ISO_STOR_START} ]] || [[ -z ${ISO_STOR_SIZE} ]]; then
+  elif [[ -z ${ISO_STOR_DRIVE} ]] || [[ -z ${ISO_STOR_START} ]] || [[ -z ${ISO_STOR_SIZE} ]] || [[ -z ${ISO_STOR_PATH} ]]; then
+    # Are we given parameters for ISO Storage
     logError "Missing configuration for ISO storage"
+    return 1
+  elif [[ ${ISO_STOR_START} -le 0 ]] || [[ ${ISO_STOR_SIZE} -le 0 ]]; then
+    # Currently we only support the scenario where DRIVE isn't at the beginning of the drive
+    logError "Invalid configuration for ISO storage"
     return 1
   fi
 
@@ -310,7 +315,21 @@ storage_create() {
   local iso_loop_device
   local res=0
 
-  # If we reach here, we've confirmed the need to create a loop device for drive 2
+  ################
+  ## VM Storage ##
+  ################
+  # First, wipe the first 34 sectors of both drives
+  if ! dd if=/dev/zero of="${VM_STOR_DRIVE1}" bs=512 count=34 seek="${VM_STOR_DRIVE1_START}"; then
+    logError "Failed to erase first 34 sectors of ${VM_STOR_DRIVE1}"
+    return 1
+  elif ! dd if=/dev/zero of="${VM_STOR_DRIVE2}" bs=512 count=34 seek="${VM_STOR_DRIVE2_START}"; then
+    logError "Failed to erase first 34 sectors of ${VM_STOR_DRIVE2}"
+    return 1
+  else
+    logInfo "First 34 sectors erased on both drives"
+  fi
+
+  # Second, create a virtual device, needed because DRIVE2 doen't start at offset 0
   if ! disk_create_loop vm_loop_device "${VM_STOR_DRIVE2}" "${VM_STOR_DRIVE2_START}" "${VM_STOR_SIZE}"; then
     logError "Failed to create loop device for VM storage"
     return 1
@@ -318,9 +337,7 @@ storage_create() {
     logInfo "Loop device created for VM storage: ${vm_loop_device}"
   fi
 
-  # TODO: Do a dd on the first 34 sectors of both devices, as mdadm might complain during array creation
-
-  # Create the RAID1 array
+  # Third, create the RAID1 array itself
   if ! disk_create_raid1 "${VM_STOR_DRIVE}" "${VM_STOR_DRIVE1}" "${vm_loop_device}"; then
     logError "Failed to create RAID1 array for VM storage"
     return 1
@@ -328,7 +345,7 @@ storage_create() {
     logInfo "RAID1 array created for VM storage"
   fi
 
-  # Create the SR record for the VM storage
+  # Fourth, create the XCP-ng Storage Record (SR) on this new drive
   if ! xe_stor_create_lvm res "${VM_STOR_NAME}" "${VM_STOR_DRIVE}"; then
     logError "Failed to create SR record for VM storage"
     return 1
@@ -336,7 +353,19 @@ storage_create() {
     logInfo "SR record created for VM storage: ${res}"
   fi
 
-  # Create the ISO storage
+  #################
+  ## ISO Storage ##
+  #################
+
+  # First, wipe the first 34 sectors of the drive
+  if ! dd if=/dev/zero of="${ISO_STOR_DRIVE}" bs=512 count=34 seek="${ISO_STOR_START}"; then
+    logError "Failed to erase first 34 sectors of ${ISO_STOR_DRIVE}"
+    return 1
+  else
+    logInfo "First 34 sectors erased on ${ISO_STOR_DRIVE}"
+  fi
+
+  # Second, create a virtual device, needed because DRIVE doen't start at offset 0
   if ! disk_create_loop iso_loop_device "${ISO_STOR_DRIVE}" "${ISO_STOR_START}" "${ISO_STOR_SIZE}"; then
     logError "Failed to create loop device for ISO storage"
     return 1
@@ -344,7 +373,7 @@ storage_create() {
     logInfo "Loop device created for ISO storage: ${iso_loop_device}"
   fi
 
-  # Format the ISO storage
+  # Third, format the ISO storage
   if ! disk_format "${iso_loop_device}" "ext4"; then
     logError "Failed to format ISO storage"
     return 1
@@ -352,7 +381,7 @@ storage_create() {
     logInfo "ISO storage formatted"
   fi
 
-  # Mount the ISO storage
+  # Fourth, mount the ISO storage
   if ! mkdir -p "${ISO_STOR_PATH}"; then
     logError "Failed to create ISO storage mount point"
     return 1
@@ -363,13 +392,17 @@ storage_create() {
     logInfo "ISO storage mounted: ${ISO_STOR_PATH}"
   fi
 
-  # Create the SR record for the ISO storage
+  # Fifth, create the XCP-ng Storage Record (SR) on it
   if ! xe_stor_create_iso res "${ISO_STOR_NAME}" "${ISO_STOR_PATH}"; then
     logError "Failed to create SR record for ISO storage"
     return 1
   else
     logInfo "SR record created for ISO storage: ${res}"
   fi
+
+  ##############
+  ## Epîlogue ##
+  ##############
 
   # Save the configuration as created
   if ! config_save "${STOR_FILE}" STOR_STATE created; then
