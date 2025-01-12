@@ -7,6 +7,7 @@ repos:
         args: ['--maxkb=512']
       - id: check-ast  # Python
       - id: check-case-conflict
+      - id: check-docstring-first  # Python
       - id: check-executables-have-shebangs  # Shell
       - id: check-shebang-scripts-are-executable  # Shell
       - id: check-merge-conflict
@@ -14,8 +15,10 @@ repos:
       - id: check-yaml  # YAML
       - id: destroyed-symlinks
       - id: detect-private-key
+      - id: double-quote-string-fixer
       - id: end-of-file-fixer
       - id: fix-byte-order-marker
+        args: ['--remove']
       - id: forbid-new-submodules
       - id: mixed-line-ending
         args: ['--fix=lf']
@@ -77,3 +80,8 @@ repos:
       - id: pylama  # Python
         args: [-o, .pylama.ini]
         exclude: src/hal/qnaplcd/__init__.py
+  - repo: https://github.com/macisamuele/language-formatters-pre-commit-hooks
+    rev: v2.14.0  # Latest version from macisamuele
+    hooks:
+      - id: pretty-format-ini  # Ini
+        args: [--autofix]
