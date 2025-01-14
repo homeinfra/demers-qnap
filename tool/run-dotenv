@@ -3,4 +3,10 @@
 
 echo "Running check on: $*"
 
-"${HOME}/.cargo/bin/dotenv-linter" "$*" --skip LowercaseKey
+if command -v dotenv-linter &>/dev/null; then
+  dotenv-linter "$*" --skip LowercaseKey
+  exit $?
+else
+  "${HOME}/.cargo/bin/dotenv-linter" "$*" --skip LowercaseKey
+  exit $?
+fi

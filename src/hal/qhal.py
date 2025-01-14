@@ -322,7 +322,7 @@ class LedHandler(IOHandler):
     self.__cur_led = None
     self.__was_in_test_mode = False
     self.__prev_state = {led: None for led in leds}
-    self.__next_state = "off"
+    self.__next_state = 'off'
 
   def set_led(self, led, state, with_logs=True):
     """Set LED."""
@@ -330,16 +330,16 @@ class LedHandler(IOHandler):
       self._log.info(f'Setting LED {led.name} to {state}')
     if state == 'on':
       self.write_io(led, 1, with_logs=with_logs)
-      self.__prev_state[led] = "on"
+      self.__prev_state[led] = 'on'
     elif state == 'off':
       self.write_io(led, 0, with_logs=with_logs)
-      self.__prev_state[led] = "off"
+      self.__prev_state[led] = 'off'
     else:
       raise ValueError(f'Invalid state: {state}')
 
   def get_led(self, led, with_logs=True):
     """Get LED."""
-    res = "on" if self.read_io(led, with_logs=with_logs) else "off"
+    res = 'on' if self.read_io(led, with_logs=with_logs) else 'off'
     if with_logs:
       self._log.info(f'Reading LED {led.name} state: {res}')
     return res
@@ -406,10 +406,10 @@ class LedHandler(IOHandler):
           self.__cur_led = leds[cur_index + 1]
         else:
           self.__cur_led = leds[0]
-          if self.__next_state == "off":
-            self.__next_state = "on"
+          if self.__next_state == 'off':
+            self.__next_state = 'on'
           else:
-            self.__next_state = "off"
+            self.__next_state = 'off'
 
       self.set_led(self.__cur_led, self.__next_state, with_logs=False)
 
@@ -541,9 +541,9 @@ def lcd_write(log, ser, line1, line2):
   ser.write(b'M\0')
   initlcd = ser.read(4)
   if initlcd == 'S\x01\x00}':
-    print("LCD is ok")
+    print('LCD is ok')
   else:
-    print("LCD is not ok")
+    print('LCD is not ok')
     # return
 
   # Line 1
@@ -568,11 +568,11 @@ def start_daemon(logger):
       try:
         pid = int(f.read().strip())
         os.kill(pid, 0)
-        logger.info("Daemon is already running")
-        print("Daemon is already running")
+        logger.info('Daemon is already running')
+        print('Daemon is already running')
         return
       except ProcessLookupError:
-        logger.warning("Stale PID file found. Removing it.")
+        logger.warning('Stale PID file found. Removing it.')
         os.remove(PID_FILE)
 
   logger.info('Starting daemon...')
@@ -581,7 +581,7 @@ def start_daemon(logger):
   if pid > 0:
       # Parent process
       logger.info(f"Forked PID {pid}")
-      print("Daemon started")
+      print('Daemon started')
   else:
       # Child process
       with daemon.DaemonContext():
@@ -598,15 +598,15 @@ def stop_daemon(logger):
         pid = int(f.read().strip())
         os.kill(pid, signal.SIGTERM)
         os.remove(PID_FILE)
-        logger.info("Daemon stopped")
-        print("Daemon stopped")
+        logger.info('Daemon stopped')
+        print('Daemon stopped')
       except ProcessLookupError:
-        logger.warning("Stale PID file found. Daemon is not running")
+        logger.warning('Stale PID file found. Daemon is not running')
         os.remove(PID_FILE)
-        print("Daemon is not running")
+        print('Daemon is not running')
   else:
-    logger.info("Daemon was not running")
-    print("Daemon is not running")
+    logger.info('Daemon was not running')
+    print('Daemon is not running')
 
 
 def is_daemon_running(logger):
@@ -616,12 +616,12 @@ def is_daemon_running(logger):
       try:
         pid = int(f.read().strip())
         os.kill(pid, 0)
-        logger.info("Daemon is running")
+        logger.info('Daemon is running')
         return True
       except ProcessLookupError:
-        logger.warning("Stale PID file found. Removing it.")
+        logger.warning('Stale PID file found. Removing it.')
         os.remove(PID_FILE)
-  logger.info("Daemon is not running")
+  logger.info('Daemon is not running')
   return False
 
 
@@ -636,16 +636,16 @@ def send_command_to_daemon(logger, command):
       logger.info(f"Response: {response}")
       print(response)
     except ConnectionRefusedError as e:
-      logger.error("Could not connect to daemon. Is it running?", exc_info=e)
-      print("No response from daemon. Is it running?")
+      logger.error('Could not connect to daemon. Is it running?', exc_info=e)
+      print('No response from daemon. Is it running?')
 
 
 def status_daemon(logger):
   """Check the status of the daemon."""
   if is_daemon_running(logger):
-    print("Daemon is running")
+    print('Daemon is running')
   else:
-    print("Daemon is not running")
+    print('Daemon is not running')
 
 
 def load_config(logger):
@@ -677,30 +677,30 @@ def get_git_root(logger):
   cur_dir = os.path.realpath(os.path.abspath(__file__))
   while not os.path.isdir(cur_dir):
     if not cur_dir or cur_dir == os.sep:
-      raise Exception("Found the ROOT while searching for git root")
+      raise Exception('Found the ROOT while searching for git root')
     cur_dir = os.path.dirname(cur_dir)
 
   # Ok, from this point we have a valid directory
-  logger.info("Starting search for git root, starting from: %s", cur_dir)
+  logger.info('Starting search for git root, starting from: %s', cur_dir)
   # Check if git is installed
-  if run(["command", "-v", "git"], stdout=DEVNULL, stderr=DEVNULL).returncode != 0:
-      raise Exception("Git not installed")
+  if run(['command', '-v', 'git'], stdout=DEVNULL, stderr=DEVNULL).returncode != 0:
+      raise Exception('Git not installed')
 
-  if run(["git", "rev-parse", "--is-inside-work-tree"], cwd=cur_dir,
+  if run(['git', 'rev-parse', '--is-inside-work-tree'], cwd=cur_dir,
          stdout=DEVNULL, stderr=DEVNULL).returncode == 0:
     res = run(['git', 'rev-parse', '--show-toplevel'], cwd=cur_dir,
               stdout=PIPE, stderr=PIPE, check=True)
     cur_dir = res.stdout.decode().strip()
     next_dir = os.path.dirname(cur_dir)
-    while run(["git", "rev-parse", "--is-inside-work-tree"], cwd=next_dir,
+    while run(['git', 'rev-parse', '--is-inside-work-tree'], cwd=next_dir,
               stdout=DEVNULL, stderr=DEVNULL).returncode == 0:
       res = run(['git', 'rev-parse', '--show-toplevel'], cwd=next_dir,
                 stdout=PIPE, stderr=PIPE, check=True)
       cur_dir = res.stdout.decode().strip()
       next_dir = os.path.dirname(cur_dir)
-    logger.info("Found git root: %s", cur_dir)
+    logger.info('Found git root: %s', cur_dir)
   else:
-    logger.warning("Not a git repository: %s", cur_dir)
+    logger.warning('Not a git repository: %s', cur_dir)
 
   return cur_dir
 
@@ -708,13 +708,13 @@ def get_git_root(logger):
 def handle_lcd_command(logger, args):
   """Handle the LCD command."""
   try:
-    with Serial(port="/dev/ttyS1", baudrate=1200, timeout=1) as ser:
+    with Serial(port='/dev/ttyS1', baudrate=1200, timeout=1) as ser:
       if args.lcd_command == 'on' or args.lcd_command == 'off':
         lcd_set_state(logger, ser, args.lcd_command)
       elif args.lcd_command == 'write':
         lcd_write(logger, ser, args.line1, args.line2)
   except Exception as e:
-    logger.error("Failed to open serial port: /dev/ttyS1", exc_info=e)
+    logger.error('Failed to open serial port: /dev/ttyS1', exc_info=e)
 
 
 def process_command(logger, args):
@@ -878,9 +878,9 @@ class LoggerConfig:
 
 
 # Get ROOT
-ROOT = os.path.realpath(os.path.dirname(os.path.realpath(os.path.abspath(__file__))) + "/../..")
+ROOT = os.path.realpath(os.path.dirname(os.path.realpath(os.path.abspath(__file__))) + '/../..')
 
-if __name__ == "__main__":
+if __name__ == '__main__':
   main()
 else:
   raise Exception(f"{__file__} is not a library")
