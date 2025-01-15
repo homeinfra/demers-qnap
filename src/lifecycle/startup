@@ -95,7 +95,7 @@ error() {
 }
 
 # Variables loaded externally
-HOME_BIN=""
+if [[ -z "${HOME_BIN}" ]]; then HOME_BIN=""; fi
 
 # XCP-ng message levels
 LVL_ERROR=1

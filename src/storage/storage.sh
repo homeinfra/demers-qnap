@@ -634,11 +634,11 @@ EOF
 }
 
 # External variables loaded
-CONFIG_DIR=""
-VM_STOR_DRIVE=""
-ISO_STOR_PATH=""
-ISO_STOR_NAME=""
-VM_STOR_NAME=""
+if [[ -z "${CONFIG_DIR}" ]]; then CONFIG_DIR=""; fi
+if [[ -z "${VM_STOR_DRIVE}" ]]; then VM_STOR_DRIVE=""; fi
+if [[ -z "${ISO_STOR_PATH}" ]]; then ISO_STOR_PATH=""; fi
+if [[ -z "${ISO_STOR_NAME}" ]]; then ISO_STOR_NAME=""; fi
+if [[ -z "${VM_STOR_NAME}" ]]; then VM_STOR_NAME=""; fi
 
 ###########################
 ###### Startup logic ######

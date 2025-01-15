@@ -209,8 +209,8 @@ md_test() {
 }
 
 # External variables loaded
-SYSADMIN=""
-SENDER=""
+if [[ -z "${SENDER}" ]]; then SENDER=""; fi
+if [[ -z "${SYSADMIN}" ]]; then SYSADMIN=""; fi
 
 ###########################
 ###### Startup logic ######

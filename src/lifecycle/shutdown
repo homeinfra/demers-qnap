@@ -189,7 +189,7 @@ error() {
 }
 
 # Variables loaded externally
-HOME_BIN=""
+if [[ -z "${HOME_BIN}" ]]; then HOME_BIN=""; fi
 
 # Constants
 SHUTDOWN_CMD_FILE="/tmp/shutdown.cmd"

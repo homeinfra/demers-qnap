@@ -337,9 +337,9 @@ external_depends() {
 }
 
 # Variables loaded externally
-LEVEL_ALL=""
-NICS=""
-QN_NAME=""
+if [[ -z "${LEVEL_ALL}" ]]; then LEVEL_ALL=""; fi
+if [[ -z "${NICS}" ]]; then NICS=""; fi
+if [[ -z "${QN_NAME}" ]]; then QN_NAME=""; fi
 
 # Constants
 AGE_KEY="homeinfra_demers"

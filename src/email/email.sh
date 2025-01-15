@@ -35,8 +35,8 @@ email_install() {
 }
 
 # Variables loaded externally
-BIN_DIR=""
-CONFIG_DIR=""
+if [[ -z "${BIN_DIR}" ]]; then BIN_DIR=""; fi
+if [[ -z "${CONFIG_DIR}" ]]; then CONFIG_DIR=""; fi
 
 ###########################
 ###### Startup logic ######

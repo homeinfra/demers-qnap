@@ -375,13 +375,13 @@ error() {
 }
 
 # External variables loaded
-CONFIG_DIR=""
-NOTIFYTYPE=""
-UPSNAME=""
-HOME_BIN=""
-MAIL_CMD=""
-SENDER=""
-SYSADMIN=""
+if [[ -z "${CONFIG_DIR}" ]]; then CONFIG_DIR=""; fi
+if [[ -z "${NOTIFYTYPE}" ]]; then NOTIFYTYPE=""; fi
+if [[ -z "${UPSNAME}" ]]; then UPSNAME=""; fi
+if [[ -z "${HOME_BIN}" ]]; then HOME_BIN=""; fi
+if [[ -z "${MAIL_CMD}" ]]; then MAIL_CMD=""; fi
+if [[ -z "${SENDER}" ]]; then SENDER=""; fi
+if [[ -z "${SYSADMIN}" ]]; then SYSADMIN=""; fi
 
 # Constants
 SCHED_CMD="/usr/sbin/upssched"

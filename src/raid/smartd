@@ -274,7 +274,7 @@ sd_test_alerts() {
 }
 
 # Variables loaded externally
-SYSADMIN=""
+if [[ -z "${SYSADMIN}" ]]; then SYSADMIN=""; fi
 
 ###########################
 ###### Startup logic ######
