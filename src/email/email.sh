@@ -24,7 +24,7 @@ email_install() {
   fi
 
   # Configure XCP-ng
-  if ! xe_configure_email "${client_config_src}"; then
+  if ! xe_email_configure "${client_config_src}"; then
     logError "Failed to configure email"
     return 1
   else
