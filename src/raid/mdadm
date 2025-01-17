@@ -208,7 +208,7 @@ md_test() {
   return 0
 }
 
-# External variables loaded
+# Variables loaded externally
 if [[ -z "${SENDER}" ]]; then SENDER=""; fi
 if [[ -z "${SYSADMIN}" ]]; then SYSADMIN=""; fi
 

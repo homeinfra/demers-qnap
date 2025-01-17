@@ -117,21 +117,6 @@ setup_host_hardware() {
     return 1
   fi
 
-  # Hide PCI devices from dom0, as they will be passed to VMs
-  local res
-  passthrough_configure
-  res=$?
-  if [[ ${res} -ne 0 ]]; then
-    if [[ ${res} -eq 2 ]]; then
-      logInfo "Reboot required"
-      REBOOT_REQUIRED=1
-    else
-      logError "Failed to configure PCI passthrough"
-      return 1
-    fi
-  fi
-  logInfo "PCI passthrough configured"
-
   return 0
 }
 
@@ -293,6 +278,12 @@ local_xcp_config() {
     return 1
   fi
 
+  # Setup hardware dependencies for NAS
+  # It must come before startup script is called for the first time
+  if ! nas_storage_setup; then
+    return 1
+  fi
+
   # Configure the lifecycle daemon
   if ! deamon_configure; then
     logError "Failed to configure the lifecycle daemon"
@@ -304,7 +295,7 @@ local_xcp_config() {
     return 1
   fi
 
-  if ! netdata_configure "qnap@demers.jeremfg.com" "sol.demers.jeremfg.com@gmail.com"; then
+  if ! netdata_configure "${SENDER}" "${SYSADMIN}"; then
     logError "Failed to configure netdata"
     return 1
   fi
@@ -438,6 +429,10 @@ fi
 # shellcheck disable=SC1094
 if ! source "${DQ_ROOT}/src/storage/storage.sh"; then
   logFatal "Failed to import storage.sh"
+fi
+# shellcheck disable=SC1094
+if ! source "${DQ_ROOT}/src/storage/nas.sh"; then
+  logFatal "Failed to import nas.sh"
 fi
 
 if [[ -p /dev/stdin ]] && [[ -z ${BASH_SOURCE[0]} ]]; then

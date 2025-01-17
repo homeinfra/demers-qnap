@@ -374,7 +374,7 @@ error() {
   fi
 }
 
-# External variables loaded
+# Variables loaded externally
 if [[ -z "${CONFIG_DIR}" ]]; then CONFIG_DIR=""; fi
 if [[ -z "${NOTIFYTYPE}" ]]; then NOTIFYTYPE=""; fi
 if [[ -z "${UPSNAME}" ]]; then UPSNAME=""; fi

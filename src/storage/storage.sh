@@ -195,6 +195,12 @@ storage_mount() {
     logInfo "Storage mounted"
   fi
 
+  # Also setup storage used by NAS
+  if ! nas_storage_mount; then
+    logError "Failed to setup NAS storage"
+    return 1
+  fi
+
   return 0
 }
 
@@ -221,7 +227,13 @@ storage_unmount() {
     ;;
   esac
 
-  # First: ISO Storage
+  # First: NAS Storage
+  if ! nas_storage_unmount; then
+    logError "Failed to unmount NAS storage"
+    __return_code=1
+  fi
+
+  # Second: ISO Storage
   if ! xe_stor_unplug "${ISO_STOR_NAME}"; then
     logError "Failed to unplug ISO storage"
     __return_code=1
@@ -253,7 +265,7 @@ storage_unmount() {
     logInfo "ISO storage disconnected"
   fi
 
-  # Second: VM Storage
+  # Third: VM Storage
   if ! xe_stor_unplug "${VM_STOR_NAME}"; then
     logError "Failed to unplug VM storage"
     __return_code=1
@@ -495,6 +507,7 @@ storage_design() {
     fi
   done
 
+  local __avail __availGiB
   logInfo <<EOF
 Summary for all drives:
 $(for drive in "${local_drives[@]}"; do
@@ -517,6 +530,13 @@ EOF
   local second_biggest_size=0
   for drive in "${local_drives[@]}"; do
     __avail=$((${drive_end_sectors[${drive}]} - ${drive_start_sectors[${drive}]}))
+    __availGiB=$((__avail * 512 / 1024 / 1024 / 1024))
+    # Ignore drives that are over 1TiB.
+    # This is probably intended for NAS/SAN and not local storage.
+    if ((__availGiB > 1024)); then
+      logWarn "Ignoring drive ${drive} with ${__avail} sectors (${__availGiB} GiB)"
+      continue
+    fi
     if ((__avail > biggest_size)); then
       second_biggest_size=${biggest_size}
       second_biggest_drive=${biggest_drive}
@@ -633,7 +653,7 @@ EOF
   return 0
 }
 
-# External variables loaded
+# Variables loaded externally
 if [[ -z "${CONFIG_DIR}" ]]; then CONFIG_DIR=""; fi
 if [[ -z "${VM_STOR_DRIVE}" ]]; then VM_STOR_DRIVE=""; fi
 if [[ -z "${ISO_STOR_PATH}" ]]; then ISO_STOR_PATH=""; fi
@@ -675,6 +695,10 @@ fi
 # shellcheck disable=SC1091
 if ! source "${PREFIX}/lib/config.sh"; then
   logFatal "Failed to import config.sh"
+fi
+# shellcheck disable=SC1091
+if ! source "${SR_ROOT}/src/nas.sh"; then
+  logFatal "Failed to import nas.sh"
 fi
 # shellcheck disable=SC1091
 if ! source "${SETUP_REPO_DIR}/src/disk.sh"; then
