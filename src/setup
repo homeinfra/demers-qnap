@@ -39,6 +39,12 @@ setup() {
 }
 
 setup_dependencies() {
+  # Make sure the OS is up to date
+  if ! yum -y update; then
+    logInfo "Failed to update"
+    return 1
+  fi
+
   # Make sure git is installed and configured
   if ! git_install; then
     logInfo "Failed to install git"
@@ -46,12 +52,6 @@ setup_dependencies() {
   fi
   if ! git_configure "${DQ_ROOT}"; then
     logInfo "Failed to configure git"
-    return 1
-  fi
-
-  # Need to update secuity before curl is used
-  if ! yum -y update curl openssl; then
-    logInfo "Failed to update curl and openssl"
     return 1
   fi
 

@@ -31,10 +31,20 @@
 # https://github.com/guedou/TS-453Be/blob/master/doc/fan_control.md#running-qnap-in-a-chroot
 
 qnap_hal_dependencies() {
-  if ! pkg_install "python3" "python3-pip" "python3-devel"; then
+  # == For XCP-ng 8.2.1 ==
+  if ! pkg_install_from updates "python3" "python3-devel"; then
+    logError "Failed to install python3"
+    return 1
+  elif ! pkg_install_from base "python3-pip"; then
     logError "Failed to install python3"
     return 1
   fi
+
+  # == For XCP-ng 8.3 ==
+  # if ! pkg_install "python3" "python3-pip" "python3-devel"; then
+  #   logError "Failed to install python3"
+  #   return 1
+  # fi
 
   if ! pip_install "python-daemon==2.3.2" "portio==0.6.2" "python-dotenv==0.20.0" "pyserial==3.5"; then
     logError "Failed to install required python modules"
