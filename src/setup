@@ -49,6 +49,12 @@ setup_dependencies() {
     return 1
   fi
 
+  # Need to update secuity before curl is used
+  if ! yum -y update curl openssl; then
+    logInfo "Failed to update curl and openssl"
+    return 1
+  fi
+
   # Install and configure configuration cyphering
   if ! sops_install; then
     logInfo "Failed to install sops"
