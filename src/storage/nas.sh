@@ -14,7 +14,7 @@ nas_storage_setup() {
   if ! nas_identify_disks; then
     return 1
   fi
-  if ! update_NAS_STOR_NAME; then
+  if ! nas_storage_update; then
     return 1
   fi
 }
@@ -42,7 +42,7 @@ nas_storage_unmount() {
     logError "Failed to get NAS state"
     return 1
   fi
-  if [[ "${state}" != "halted" ]]; then
+  if [[ "${state}" != "halted" ]] && [[ "${state}" != "not_exist" ]]; then
     logError "NAS must be stopped first, before cutting the grass under it's feet"
     return 1
   fi
@@ -142,7 +142,7 @@ nas_identify_disks() {
       fi
       controller_1["Disk${c1_count}"]="${disk}"
       controller_1["Disk${c1_count}_PATH"]="${d_path}"
-      controller_1["Dosk${c1_count}_SN"]="${d_sn}"
+      controller_1["Disk${c1_count}_SN"]="${d_sn}"
       controller_1["Disk${c1_count}_WWN"]="${d_wwn}"
     elif [[ "${d_path}" == "/devices/pci0000:00/0000:00:02.2/0000:07:00.0"* ]]; then
       # There will be only one drive on controller 2, for Disk 3
@@ -200,10 +200,12 @@ nas_identify_disks() {
 
   local ata1 ata2
   # On controller 1, Disk 1 should have a lower ATA number than Disk 2
-  ata1=$(echo "${controller_1["Disk1__PATH"]}" | awk -F'/' '{for (i=1; i<=NF; i++) if ($i ~ /ata/) {print $i; exit}}')
-  ata2=$(echo "${controller_1["Disk2__PATH"]}" | awk -F'/' '{for (i=1; i<=NF; i++) if ($i ~ /ata/) {print $i; exit}}')
+  ata1=$(echo "${controller_1["Disk1_PATH"]}" | awk -F'/' '{for (i=1; i<=NF; i++) if ($i ~ /ata/) {print $i; exit}}')
+  ata2=$(echo "${controller_1["Disk2_PATH"]}" | awk -F'/' '{for (i=1; i<=NF; i++) if ($i ~ /ata/) {print $i; exit}}')
+  logTrace "Candidate Disk 1: ${ata1}, Candidate Disk 2: ${ata2}"
   if [[ "${ata1}" > "${ata2}" ]]; then
     # The bigger is Disk 2
+    logInfo "Disk 1 has a higher ata number than Disk 2, reversing"
     tmp_D2_DEV="${controller_1["Disk1"]}"
     tmp_D2_PATH="${controller_1["Disk1_PATH"]}"
     tmp_D2_SN="${controller_1["Disk1_SN"]}"
@@ -214,6 +216,7 @@ nas_identify_disks() {
     tmp_D1_WWN="${controller_1["Disk2_WWN"]}"
   else
     # The smaller is Disk 1
+    logInfo "Disk 2 has a higher ata number than Disk 1, approving"
     # shellcheck disable=SC2034
     tmp_D1_DEV="${controller_1["Disk1"]}"
     # shellcheck disable=SC2034
@@ -233,10 +236,12 @@ nas_identify_disks() {
   fi
 
   # On controller 4, Disk 5 should have a lower ATA number than Disk 6
-  ata1=$(echo "${controller_4["Disk1__PATH"]}" | awk -F'/' '{for (i=1; i<=NF; i++) if ($i ~ /ata/) {print $i; exit}}')
-  ata2=$(echo "${controller_4["Disk2__PATH"]}" | awk -F'/' '{for (i=1; i<=NF; i++) if ($i ~ /ata/) {print $i; exit}}')
+  ata1=$(echo "${controller_4["Disk1_PATH"]}" | awk -F'/' '{for (i=1; i<=NF; i++) if ($i ~ /ata/) {print $i; exit}}')
+  ata2=$(echo "${controller_4["Disk2_PATH"]}" | awk -F'/' '{for (i=1; i<=NF; i++) if ($i ~ /ata/) {print $i; exit}}')
+  logTrace "Candidate Disk 5: ${ata1}, Candidate Disk 6: ${ata2}"
   if [[ "${ata1}" > "${ata2}" ]]; then
     # The bigger is Disk 6
+    logInfo "Disk 5 has a higher ata number than Disk 6, reversing"
     tmp_D6_DEV="${controller_4["Disk1"]}"
     tmp_D6_PATH="${controller_4["Disk1_PATH"]}"
     tmp_D6_SN="${controller_4["Disk1_SN"]}"
@@ -247,6 +252,7 @@ nas_identify_disks() {
     tmp_D5_WWN="${controller_4["Disk2_WWN"]}"
   else
     # The smaller is Disk 5
+    logInfo "Disk 6 has a higher ata number than Disk 5, approving"
     # shellcheck disable=SC2034
     tmp_D5_DEV="${controller_4["Disk1"]}"
     # shellcheck disable=SC2034
@@ -288,7 +294,7 @@ nas_identify_disks() {
       else
         logOutput+="  Device: ${!var_new_dev} (new)\n"
       fi
-      config_store "${nas_config_file}" "${var_old_dev}" "${!var_new_dev}"
+      config_save "${nas_config_file}" "${var_old_dev}" "${!var_new_dev}"
       config_dirty=1
     else
       logOutput+="  Device: ${!var_old_dev}\n"
@@ -299,7 +305,7 @@ nas_identify_disks() {
       else
         logOutput+="  Path: ${!var_new_path} (new)\n"
       fi
-      config_store "${nas_config_file}" "${var_old_path}" "${!var_new_path}"
+      config_save "${nas_config_file}" "${var_old_path}" "${!var_new_path}"
       config_dirty=1
     else
       logOutput+="  Path: ${!var_old_path}\n"
@@ -310,7 +316,7 @@ nas_identify_disks() {
       else
         logOutput+="  SN: ${!var_new_sn} (new)\n"
       fi
-      config_store "${nas_config_file}" "${var_old_sn}" "${!var_new_sn}"
+      config_save "${nas_config_file}" "${var_old_sn}" "${!var_new_sn}"
       config_dirty=1
     else
       logOutput+="  SN: ${!var_old_sn}\n"
@@ -321,25 +327,52 @@ nas_identify_disks() {
       else
         logOutput+="  WWN: ${!var_new_wwn} (new)\n"
       fi
-      config_store "${nas_config_file}" "${var_old_wwn}" "${!var_new_wwn}"
+      config_save "${nas_config_file}" "${var_old_wwn}" "${!var_new_wwn}"
       config_dirty=1
     else
       logOutput+="  WWN: ${!var_old_wwn}\n"
     fi
   done
 
+  logTrace "\nWe have the following drive configuration:\n${logOutput}"
+
+  # Make sure the SR name is configured
+  if [[ -z "${NAS_STOR_NAME}" ]]; then
+    NAS_STOR_NAME="${DEFAULT_NAS_STOR_NAME}"
+    if ! config_save "${CONFIG_DIR}/storage.env" "NAS_STOR_NAME" "${NAS_STOR_NAME}"; then
+      logError "Failed to save NAS SR name"
+      return 1
+    fi
+  fi
+
+  # Make sure the VM name is configured
+  if [[ -z "${VM_NAME_NAS}" ]]; then
+    VM_NAME_NAS="${DEFAULT_VM_NAME_NAS}"
+    if ! config_save "${nas_config_file}" "VM_NAME_NAS" "${VM_NAME_NAS}"; then
+      logError "Failed to save NAS VM name"
+      return 1
+    fi
+  fi
+
   if [[ ${config_dirty} -eq 1 ]]; then
     logInfo "NAS configuration updated"
-    config_load "${nas_config_file}"
+    if ! config_load "${nas_config_file}"; then
+      logError "Failed to reload NAS configuration"
+      return 1
+    fi
+    if ! config_load "${CONFIG_DIR}/storage.env"; then
+      logError "Failed to reload storage configuration"
+      return 1
+    fi
   else
     logInfo "NAS configuration unchanged"
   fi
 }
 
-update_NAS_STOR_NAME() {
+nas_storage_update() {
   local needs_update folder_nas
   needs_update=0
-  folder_nas="${CONFIG_DIR}/NAS_STOR_NAME"
+  folder_nas="${CONFIG_DIR}/${NAS_STOR_NAME}"
 
   if [[ -d "${folder_nas}" ]]; then
     logInfo "NAS SR folder already exists"
@@ -376,13 +409,6 @@ update_NAS_STOR_NAME() {
     # Make sure it's unmounted first, before modifying it
     if ! nas_storage_unmount; then
       logError "Failed to unmount NAS SR first"
-      return 1
-    fi
-
-    # Make sure the SR name is configured
-    state="${CONFIG_DIR}/storage.env"
-    if ! config_save "${state}" "NAS_STOR_NAME" "${NAS_STOR_NAME}"; then
-      logError "Failed to save NAS SR name"
       return 1
     fi
 
@@ -432,6 +458,10 @@ update_NAS_STOR_NAME() {
 
 # Variables loaded externally
 
+# Constants
+DEFAULT_NAS_STOR_NAME="qnap_nas"
+DEFAULT_VM_NAME_NAS="Halley"
+
 ###########################
 ###### Startup logic ######
 ###########################
@@ -473,8 +503,8 @@ if ! source "${SETUP_REPO_DIR}/src/disk.sh"; then
   logFatal "Failed to import config.sh"
 fi
 # shellcheck disable=SC1091
-if ! source "${XE_REPO_DIR}/src/xe_storage.sh"; then
-  logFatal "Failed to import config.sh"
+if ! source "${XE_REPO_DIR}/src/xe_vm.sh"; then
+  logFatal "Failed to import xe_vm.sh"
 fi
 
 if [[ -p /dev/stdin ]] && [[ -z ${BASH_SOURCE[0]} ]]; then

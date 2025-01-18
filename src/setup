@@ -361,7 +361,9 @@ if [[ -z "${PREFIX}" ]]; then
 fi
 
 # Instalal external dependencies
-external_depends
+if ! external_depends; then
+  exit 1
+fi
 
 # Import dependencies
 SETUP_REPO_DIR="${DQ_ROOT}/external/setup"

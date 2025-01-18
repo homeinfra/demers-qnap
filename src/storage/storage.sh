@@ -697,16 +697,16 @@ if ! source "${PREFIX}/lib/config.sh"; then
   logFatal "Failed to import config.sh"
 fi
 # shellcheck disable=SC1091
-if ! source "${SR_ROOT}/src/nas.sh"; then
+if ! source "${SR_ROOT}/src/storage/nas.sh"; then
   logFatal "Failed to import nas.sh"
 fi
 # shellcheck disable=SC1091
 if ! source "${SETUP_REPO_DIR}/src/disk.sh"; then
-  logFatal "Failed to import config.sh"
+  logFatal "Failed to import disk.sh"
 fi
 # shellcheck disable=SC1091
 if ! source "${XE_REPO_DIR}/src/xe_storage.sh"; then
-  logFatal "Failed to import config.sh"
+  logFatal "Failed to import xe_storage.sh"
 fi
 
 if [[ -p /dev/stdin ]] && [[ -z ${BASH_SOURCE[0]} ]]; then
