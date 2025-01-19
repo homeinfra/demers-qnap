@@ -61,16 +61,16 @@ qnap_hal_install() {
     return 1
   fi
 
-  if [[ -z "${QN_ID}" ]]; then
-    logError "QN_ID is not set"
+  if [[ -z "${QN_TAR}" ]]; then
+    logError "QN_TAR is not set"
     return 1
   fi
 
   local install_root="${BIN_DIR}/hal"
-  local installer="${QN_ROOT}/data/hal_${QN_ID}.tar.gz"
+  local installer="${QN_ROOT}/data/${QN_TAR}"
 
   if [[ ! -d "${install_root}" ]] || [[ -z "$(ls -A "${install_root}" || true)" ]]; then
-    logTrace "Installing HAL for ${QN_ID}"
+    logTrace "Installing HAL using ${installer}"
 
     if [[ ! -f "${installer}" ]]; then
       logError "Installer not found: ${installer}"
@@ -87,7 +87,7 @@ qnap_hal_install() {
       return 1
     fi
   else
-    logInfo "HAL for ${QN_ID} is already installed"
+    logInfo "HAL ${QN_TAR} is already installed"
   fi
 
   local res

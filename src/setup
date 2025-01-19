@@ -258,6 +258,11 @@ validate_hardware() {
 
 check_system() {
   local name
+  if [[ -z "${QN_NAME}" ]]; then
+    logError "QN_NAME is not set"
+    return 1
+  fi
+
   if id_identify name; then
     if [[ "${name}" == "${QN_NAME}" ]]; then
       return 0
@@ -336,7 +341,6 @@ external_depends() {
 # Variables loaded externally
 if [[ -z "${LEVEL_ALL}" ]]; then LEVEL_ALL=""; fi
 if [[ -z "${NICS}" ]]; then NICS=""; fi
-if [[ -z "${QN_NAME}" ]]; then QN_NAME=""; fi
 
 # Constants
 AGE_KEY="homeinfra_demers"

@@ -24,51 +24,61 @@ nas_storage_mount() {
   return $?
 }
 
-# Unmount the NAS SR (usually during shutdown)
+# Unmount the NAS storage (usually during shutdown)
 nas_storage_unmount() {
-  local state res create
+  local state res
 
   # Validate requirements
-  if [[ -z "${NAS_STOR_NAME}" ]]; then
-    logError "NAS_STOR_NAME is not set"
-    return 1
-  elif [[ -z "${VM_NAME_NAS}" ]]; then
-    logError "VM_NAME_NAS is not set"
+  if [[ -z "${XCP_DRIVE_SR_NAME}" ]]; then
+    logError "XCP_DRIVE_SR_NAME is not set"
     return 1
   fi
 
-  # Make sure the NAS is not running
-  if ! xe_vm_state state "${VM_NAME_NAS}"; then
-    logError "Failed to get NAS state"
-    return 1
-  fi
-  if [[ "${state}" != "halted" ]] && [[ "${state}" != "not_exist" ]]; then
-    logError "NAS must be stopped first, before cutting the grass under it's feet"
-    return 1
-  fi
   # Check if a SR exists
-  xe_stor_uuid_by_name state "${NAS_STOR_NAME}"
+  xe_stor_uuid_by_name state "${XCP_DRIVE_SR_NAME}"
   res=$?
   if [[ ${res} -eq 1 ]]; then
-    logError "Failed to check the existence of the NAS SR"
+    logError "Failed to check the existence of the ${XCP_DRIVE_SR_NAME} SR"
     return 1
   elif [[ ${res} -eq 2 ]]; then
-    logInfo "NAS SR does not exist"
-    create=1
-  fi
-
-  if [[ ${create} -eq 0 ]]; then
-    # Make sure the SR is unplugged
-    if ! xe_stor_unplug "${NAS_STOR_NAME}"; then
-      logError "Failed to unplug the NAS SR"
+    logInfo "SR ${XCP_DRIVE_SR_NAME} does not exist"
+  else
+    logTrace "SR ${XCP_DRIVE_SR_NAME} exists"
+    local users_uuids
+    if ! xe_vm_list_by_sr users_uuids "${XCP_DRIVE_SR_NAME}"; then
+      logError "Failed to list VMs using the ${XCP_DRIVE_SR_NAME} SR"
       return 1
     fi
+    for res in "${users_uuids[@]}"; do
+      # Make sure the VM is halted
+      if ! xe_vm_state_by_id state "${res}"; then
+        logError "Failed to get state of VM ${res}: ${state}"
+        return 1
+      elif [[ "${state}" != "halted" ]] && [[ "${state}" != "not_exist" ]]; then
+        logError "VM ${res} is currently in state ${state}. We cannot modify the SR"
+        return 1
+      else
+        logTrace "VM ${res} is in state ${state}, not preventing SR disconnect"
+      fi
+    done
+  fi
+
+  # Make sure the SR is unplugged
+  if ! xe_stor_unplug "${XCP_DRIVE_SR_NAME}"; then
+    logError "Failed to unplug the ${XCP_DRIVE_SR_NAME} SR"
+    return 1
   fi
 }
 
 # Identify disks and store that information
 nas_identify_disks() {
   local nas_config_file config_dirty
+
+  # Load hardware configuration
+  if ! source "${NAS_ROOT}/data/hardware.env"; then
+    logError "Failed to load hardware configuration"
+    return 1
+  fi
 
   if [[ -z "${CONFIG_DIR}" ]]; then
     logError "CONFIG_DIR is not set"
@@ -114,254 +124,201 @@ nas_identify_disks() {
   done
 
   # Sanity check, we expect to find exactly 6 disks
-  if [[ ${#candidate_disks[@]} -ne 6 ]]; then
-    logError "Expected to find 6 disks, found ${#candidate_disks[@]}"
+  if [[ ${#candidate_disks[@]} -le ${DRIVE_MAX} ]]; then
+    logError "Expected to find 6 disks at most, we found ${#candidate_disks[@]}."
     return 1
   fi
 
   # Identify the disks
-  declare -A controller_1 controller_4
-  local tmp_D1_DEV tmp_D2_DEV tmp_D3_DEV tmp_D4_DEV tmp_D5_DEV tmp_D6_DEV
-  local tmp_D1_PATH tmp_D2_PATH tmp_D3_PATH tmp_D4_PATH tmp_D5_PATH tmp_D6_PATH
-  local tmp_D1_SN tmp_D2_SN tmp_D3_SN tmp_D4_SN tmp_D5_SN tmp_D6_SN
-  local tmp_D1_WWN tmp_D2_WWN tmp_D3_WWN tmp_D4_WWN tmp_D5_WWN tmp_D6_WWN
-  local d_path d_sn d_wwn c1_count c4_count
-  c1_count=0
-  c4_count=0
+  local i disk_count
+  local -a c_count
+  local var_ctrl_prefix var_disk_ctrl var_disk_cnt
+  local var_disk_name var_disk_path var_disk_sn var_disk_wwn
+  local new_disk_name new_disk_path new_disk_sn new_disk_wwn
+  for i in $(seq 1 "${DRIVE_CONTROLLERS}"); do
+    declare -A controller_"${i}"
+    c_count[i]=0
+  done
+  for i in $(seq 1 "${DRIVE_MAX}"); do
+    declare -A disk_"${i}"
+  done
+
+  local d_path d_sn d_wwn ata ata_lowest d_lowest
+  disk_count=0
   for disk in "${candidate_disks[@]}"; do
     if ! disk_get_info d_path d_sn d_wwn "${disk}"; then
       logError "Failed to get info for ${disk}"
       return 1
     fi
-    if [[ "${d_path}" == "/devices/pci0000:00/0000:00:11.0"* ]]; then
-      # There will be two drives in controller 1, for Disk 1 and Disk 2
-      c1_count=$((c1_count + 1))
-      if [[ ${c1_count} -gt 2 ]]; then
-        logError "Too many drives on controller 1"
-        return 1
+    for i in $(seq 1 "${DRIVE_CONTROLLERS}"); do
+      var_ctrl_prefix="DRIVE_CONTROLLER${i}_PREFIX"
+      if [[ "${d_path}" == "${!var_ctrl_prefix}"* ]]; then
+        disk_count=$((disk_count + 1))
+        c_count[i]=$((c_count[i] + 1))
+        var_disk_name="controller_${i}[\"Disk${c_count[${i}]}\"]"
+        var_disk_path="controller_${i}[\"Disk${c_count[${i}]}_PATH\"]"
+        var_disk_sn="controller_${i}[\"Disk${c_count[${i}]}_SN\"]"
+        var_disk_wwn="controller_${i}[\"Disk${c_count[${i}]}_WWN\"]"
+        eval "${var_disk_name}=\"${disk}\""
+        eval "${var_disk_path}=\"${d_path}\""
+        eval "${var_disk_sn}=\"${d_sn}\""
+        eval "${var_disk_wwn}=\"${d_wwn}\""
       fi
-      controller_1["Disk${c1_count}"]="${disk}"
-      controller_1["Disk${c1_count}_PATH"]="${d_path}"
-      controller_1["Disk${c1_count}_SN"]="${d_sn}"
-      controller_1["Disk${c1_count}_WWN"]="${d_wwn}"
-    elif [[ "${d_path}" == "/devices/pci0000:00/0000:00:02.2/0000:07:00.0"* ]]; then
-      # There will be only one drive on controller 2, for Disk 3
-      if [[ -n "${tmp_D3_DEV}" ]]; then
-        logError "Disk 3 already identified. There should only be one"
-        return 1
+    done
+  done
+
+  if [[ ${disk_count} -ne ${DRIVE_MAX} ]]; then
+    logWarn "Expected to find ${DRIVE_MAX} disks, we found ${disk_count}."
+  fi
+
+  # For each disk, look at the controller we expect to find it on
+  for i in $(seq 1 "${DRIVE_MAX}"); do
+    var_disk_ctrl="DRIVE${i}_CTRL"
+    var_disk_cnt="c_count[${!var_disk_ctrl}]"
+    # For each drive counted on the controller
+    d_lowest=0
+    for j in $(seq 1 "${!var_disk_cnt}"); do
+      var_disk_name="controller_${!var_disk_ctrl}[\"Disk${j}\"]"
+      var_disk_path="controller_${!var_disk_ctrl}[\"Disk${j}_PATH\"]"
+      if [[ -z "${!var_disk_name}" ]]; then
+        logTrace "Skipping Disk ${j} on controller ${!var_disk_ctrl}"
+        continue
       fi
-      tmp_D3_DEV="${disk}"
-      # shellcheck disable=SC2034
-      tmp_D3_PATH="${d_path}"
-      # shellcheck disable=SC2034
-      tmp_D3_SN="${d_sn}"
-      # shellcheck disable=SC2034
-      tmp_D3_WWN="${d_wwn}"
-    elif [[ "${d_path}" == "/devices/pci0000:00/0000:00:02.3/0000:08:00.0"* ]]; then
-      # There will be only one drive on controller 3, for Disk 4
-      if [[ -n "${tmp_D4_DEV}" ]]; then
-        logError "Disk 4 already identified. There should only be one"
-        return 1
+      ata=$(echo "${!var_disk_path}" | awk -F'/' '{for (i=1; i<=NF; i++) if ($i ~ /ata/) {print $i; exit}}')
+      if [[ -z "${ata_lowest}" ]]; then
+        ata_lowest="${ata}"
+        d_lowest=${j}
+      elif [[ "${ata}" < "${ata_lowest}" ]]; then
+        ata_lowest="${ata}"
+        d_lowest="${j}"
       fi
-      tmp_D4_DEV="${disk}"
-      # shellcheck disable=SC2034
-      tmp_D4_PATH="${d_path}"
-      # shellcheck disable=SC2034
-      tmp_D4_SN="${d_sn}"
-      # shellcheck disable=SC2034
-      tmp_D4_WWN="${d_wwn}"
-    elif [[ "${d_path}" == "/devices/pci0000:00/0000:00:02.4/0000:09:00.0"* ]]; then
-      # There will be two drives in controller 4, for Disk 5 and Disk 6
-      c4_count=$((c4_count + 1))
-      if [[ ${c4_count} -gt 2 ]]; then
-        logError "Too many drives on controller 4"
-        return 1
-      fi
-      controller_4["Disk${c4_count}"]="${disk}"
-      controller_4["Disk${c4_count}_PATH"]="${d_path}"
-      controller_4["Disk${c4_count}_SN"]="${d_sn}"
-      controller_4["Disk${c4_count}_WWN"]="${d_wwn}"
+    done
+    if [[ ${d_lowest} -eq 0 ]]; then
+      logWarn "Disk ${i} does not fit with any detections on controller ${!var_disk_ctrl}"
     else
-      logError "Unknown controller for ${disk}"
-      return 1
+      logInfo "Disk ${i} is ${ata_lowest} on controller ${!var_disk_ctrl}"
+      var_disk_name="controller_${!var_disk_ctrl}[\"Disk${d_lowest}\"]"
+      var_disk_path="controller_${!var_disk_ctrl}[\"Disk${d_lowest}_PATH\"]"
+      var_disk_sn="controller_${!var_disk_ctrl}[\"Disk${d_lowest}_SN\"]"
+      var_disk_wwn="controller_${!var_disk_ctrl}[\"Disk${d_lowest}_WWN\"]"
+      new_disk_name="disk_${i}[\"Name\"]"
+      new_disk_path="disk_${i}[\"Path\"]"
+      new_disk_sn="disk_${i}[\"SN\"]"
+      new_disk_wwn="disk_${i}[\"WWN\"]"
+      eval "${new_disk_name}=\"${!var_disk_name}\""
+      eval "${new_disk_path}=\"${!var_disk_path}\""
+      eval "${new_disk_sn}=\"${!var_disk_sn}\""
+      eval "${new_disk_wwn}=\"${!var_disk_wwn}\""
     fi
   done
 
-  # If we are here, we've iterated 6 times and identified all our disks
-  # We must now discriminate on controller 1 and 4
-  if [[ ${c1_count} -ne 2 ]]; then
-    logError "Expected 2 disks on controller 1, found ${c1_count}"
-    return 1
-  fi
-  if [[ ${c4_count} -ne 2 ]]; then
-    logError "Expected 2 disks on controller 4, found ${c4_count}"
-    return 1
-  fi
-
-  local ata1 ata2
-  # On controller 1, Disk 1 should have a lower ATA number than Disk 2
-  ata1=$(echo "${controller_1["Disk1_PATH"]}" | awk -F'/' '{for (i=1; i<=NF; i++) if ($i ~ /ata/) {print $i; exit}}')
-  ata2=$(echo "${controller_1["Disk2_PATH"]}" | awk -F'/' '{for (i=1; i<=NF; i++) if ($i ~ /ata/) {print $i; exit}}')
-  logTrace "Candidate Disk 1: ${ata1}, Candidate Disk 2: ${ata2}"
-  if [[ "${ata1}" > "${ata2}" ]]; then
-    # The bigger is Disk 2
-    logInfo "Disk 1 has a higher ata number than Disk 2, reversing"
-    tmp_D2_DEV="${controller_1["Disk1"]}"
-    tmp_D2_PATH="${controller_1["Disk1_PATH"]}"
-    tmp_D2_SN="${controller_1["Disk1_SN"]}"
-    tmp_D2_WWN="${controller_1["Disk1_WWN"]}"
-    tmp_D1_DEV="${controller_1["Disk2"]}"
-    tmp_D1_PATH="${controller_1["Disk2_PATH"]}"
-    tmp_D1_SN="${controller_1["Disk2_SN"]}"
-    tmp_D1_WWN="${controller_1["Disk2_WWN"]}"
-  else
-    # The smaller is Disk 1
-    logInfo "Disk 2 has a higher ata number than Disk 1, approving"
-    # shellcheck disable=SC2034
-    tmp_D1_DEV="${controller_1["Disk1"]}"
-    # shellcheck disable=SC2034
-    tmp_D1_PATH="${controller_1["Disk1_PATH"]}"
-    # shellcheck disable=SC2034
-    tmp_D1_SN="${controller_1["Disk1_SN"]}"
-    # shellcheck disable=SC2034
-    tmp_D1_WWN="${controller_1["Disk1_WWN"]}"
-    # shellcheck disable=SC2034
-    tmp_D2_DEV="${controller_1["Disk2"]}"
-    # shellcheck disable=SC2034
-    tmp_D2_PATH="${controller_1["Disk2_PATH"]}"
-    # shellcheck disable=SC2034
-    tmp_D2_SN="${controller_1["Disk2_SN"]}"
-    # shellcheck disable=SC2034
-    tmp_D2_WWN="${controller_1["Disk2_WWN"]}"
-  fi
-
-  # On controller 4, Disk 5 should have a lower ATA number than Disk 6
-  ata1=$(echo "${controller_4["Disk1_PATH"]}" | awk -F'/' '{for (i=1; i<=NF; i++) if ($i ~ /ata/) {print $i; exit}}')
-  ata2=$(echo "${controller_4["Disk2_PATH"]}" | awk -F'/' '{for (i=1; i<=NF; i++) if ($i ~ /ata/) {print $i; exit}}')
-  logTrace "Candidate Disk 5: ${ata1}, Candidate Disk 6: ${ata2}"
-  if [[ "${ata1}" > "${ata2}" ]]; then
-    # The bigger is Disk 6
-    logInfo "Disk 5 has a higher ata number than Disk 6, reversing"
-    tmp_D6_DEV="${controller_4["Disk1"]}"
-    tmp_D6_PATH="${controller_4["Disk1_PATH"]}"
-    tmp_D6_SN="${controller_4["Disk1_SN"]}"
-    tmp_D6_WWN="${controller_4["Disk1_WWN"]}"
-    tmp_D5_DEV="${controller_4["Disk2"]}"
-    tmp_D5_PATH="${controller_4["Disk2_PATH"]}"
-    tmp_D5_SN="${controller_4["Disk2_SN"]}"
-    tmp_D5_WWN="${controller_4["Disk2_WWN"]}"
-  else
-    # The smaller is Disk 5
-    logInfo "Disk 6 has a higher ata number than Disk 5, approving"
-    # shellcheck disable=SC2034
-    tmp_D5_DEV="${controller_4["Disk1"]}"
-    # shellcheck disable=SC2034
-    tmp_D5_PATH="${controller_4["Disk1_PATH"]}"
-    # shellcheck disable=SC2034
-    tmp_D5_SN="${controller_4["Disk1_SN"]}"
-    # shellcheck disable=SC2034
-    tmp_D5_WWN="${controller_4["Disk1_WWN"]}"
-    # shellcheck disable=SC2034
-    tmp_D6_DEV="${controller_4["Disk2"]}"
-    # shellcheck disable=SC2034
-    tmp_D6_PATH="${controller_4["Disk2_PATH"]}"
-    # shellcheck disable=SC2034
-    tmp_D6_SN="${controller_4["Disk2_SN"]}"
-    # shellcheck disable=SC2034
-    tmp_D6_WWN="${controller_4["Disk2_WWN"]}"
-  fi
-
-  # Our 6 disks are fully identified. Store and print the information
-  local d_count
-  local var_old_dev var_old_path var_old_sn var_old_wwn
-  local var_new_dev var_new_path var_new_sn var_new_wwn
-  local logOutput
-  for d_count in 1 2 3 4 5 6; do
-    var_old_dev="D${d_count}_DEV"
-    var_old_path="D${d_count}_PATH"
-    var_old_sn="D${d_count}_SN"
-    var_old_wwn="D${d_count}_WWN"
-    var_new_dev="tmp_D${d_count}_DEV"
-    var_new_path="tmp_D${d_count}_PATH"
-    var_new_sn="tmp_D${d_count}_SN"
-    var_new_wwn="tmp_D${d_count}_WWN"
-
-    logOutput+="Disk ${d_count}:\n"
-    # Compare old and new values
-    if [[ "${!var_old_dev}" != "${!var_new_dev}" ]]; then
-      if [[ -n "${!var_old_dev}" ]]; then
-        logOutput+="  Device: ${!var_old_dev} -> ${!var_new_dev}\n"
-      else
-        logOutput+="  Device: ${!var_new_dev} (new)\n"
-      fi
-      config_save "${nas_config_file}" "${var_old_dev}" "${!var_new_dev}"
-      config_dirty=1
+  # Update configuration
+  local log_output res
+  res=0
+  for i in $(seq 1 "${DRIVE_MAX}"); do
+    var_disk_name="D${i}_DEV"
+    var_disk_path="D${i}_PATH"
+    var_disk_sn="D${i}_SN"
+    var_disk_wwn="D${i}_WWN"
+    new_disk_name="disk_${i}[\"Name\"]"
+    new_disk_path="disk_${i}[\"Path\"]"
+    new_disk_sn="disk_${i}[\"SN\"]"
+    new_disk_wwn="disk_${i}[\"WWN\"]"
+    if [[ -z "${log_output}" ]]; then
+      log_output="Disk ${i}"
     else
-      logOutput+="  Device: ${!var_old_dev}\n"
+      log_output+="\n\nDisk ${i}"
     fi
-    if [[ "${!var_old_path}" != "${!var_new_path}" ]]; then
-      if [[ -n "${!var_old_path}" ]]; then
-        logOutput+="  Path: ${!var_old_path} -> ${!var_new_path}\n"
+    if [[ -z "${!new_disk_name}" ]]; then
+      logWarn "Disk ${i} not detected"
+      if [[ -n "${!var_disk_name}" ]]; then
+        log_output+=": Disappeared"
+        logTrace "Removing Disk ${i} from configuration"
+        config_save "${nas_config_file}" "${var_disk_name}" "" || res=1
+        config_save "${nas_config_file}" "${var_disk_path}" "" || res=1
+        config_save "${nas_config_file}" "${var_disk_sn}" "" || res=1
+        config_save "${nas_config_file}" "${var_disk_wwn}" "" || res=1
+        config_dirty=1
       else
-        logOutput+="  Path: ${!var_new_path} (new)\n"
+        log_output+=": Not present"
+        config_save "${nas_config_file}" "${var_disk_name}" "" || res=1
+        config_save "${nas_config_file}" "${var_disk_path}" "" || res=1
+        config_save "${nas_config_file}" "${var_disk_sn}" "" || res=1
+        config_save "${nas_config_file}" "${var_disk_wwn}" "" || res=1
       fi
-      config_save "${nas_config_file}" "${var_old_path}" "${!var_new_path}"
-      config_dirty=1
     else
-      logOutput+="  Path: ${!var_old_path}\n"
-    fi
-    if [[ "${!var_old_sn}" != "${!var_new_sn}" ]]; then
-      if [[ -n "${!var_old_sn}" ]]; then
-        logOutput+="  SN: ${!var_old_sn} -> ${!var_new_sn}\n"
+      logTrace "Disk ${i} detected"
+      if [[ -z "${!var_disk_name}" ]]; then
+        log_output+=": New"
+        log_output+="\n  Name : ${!new_disk_name}"
+        log_output+="\n  Path : ${!new_disk_path}"
+        log_output+="\n  SN   : ${!new_disk_sn}"
+        log_output+="\n  WWN  : ${!new_disk_wwn}"
+        logTrace "Adding Disk ${i} name to configuration"
+        config_save "${nas_config_file}" "${var_disk_name}" "${!new_disk_name}" || res=1
+        config_save "${nas_config_file}" "${var_disk_path}" "${!new_disk_path}" || res=1
+        config_save "${nas_config_file}" "${var_disk_sn}" "${!new_disk_sn}" || res=1
+        config_save "${nas_config_file}" "${var_disk_wwn}" "${!new_disk_wwn}" || res=1
+        config_dirty=1
       else
-        logOutput+="  SN: ${!var_new_sn} (new)\n"
+        if [[ "${!var_disk_name}" != "${!new_disk_name}" ]]; then
+          log_output+=": Exchanged"
+          log_output+="\n  Name : ${!var_disk_name} -> ${!new_disk_name}"
+          log_output+="\n  Path : ${!new_disk_path}"
+          log_output+="\n  SN   : ${!new_disk_sn}"
+          log_output+="\n  WWN  : ${!new_disk_wwn}"
+          logTrace "Updating Disk ${i} name"
+          config_save "${nas_config_file}" "${var_disk_name}" "${!new_disk_name}" || res=1
+          config_save "${nas_config_file}" "${var_disk_path}" "${!new_disk_path}" || res=1
+          config_save "${nas_config_file}" "${var_disk_sn}" "${!new_disk_sn}" || res=1
+          config_save "${nas_config_file}" "${var_disk_wwn}" "${!new_disk_wwn}" || res=1
+          config_dirty=1
+        elif [[ "${!var_disk_path}" != "${!new_disk_path}" ]] ||
+          [[ "${!var_disk_sn}" != "${!new_disk_sn}" ]] ||
+          [[ "${!var_disk_wwn}" != "${!new_disk_wwn}" ]]; then
+          log_output+=": Updated"
+          if [[ "${!var_disk_path}" != "${!new_disk_path}" ]]; then
+            log_output+="\n  Path : ${!var_disk_path} -> ${!new_disk_path}"
+            config_save "${nas_config_file}" "${var_disk_path}" "${!new_disk_path}" || res=1
+            config_dirty=1
+          else
+            log_output+="\n  Path : ${!var_disk_path}"
+          fi
+          if [[ "${!var_disk_sn}" != "${!new_disk_sn}" ]]; then
+            log_output+="\n  SN   : ${!var_disk_sn} -> ${!new_disk_sn}"
+            config_save "${nas_config_file}" "${var_disk_sn}" "${!new_disk_sn}" || res=1
+            config_dirty=1
+          else
+            log_output+="\n  SN   : ${!var_disk_sn}"
+          fi
+          if [[ "${!var_disk_wwn}" != "${!new_disk_wwn}" ]]; then
+            log_output+="\n  WWN  : ${!var_disk_wwn} -> ${!new_disk_wwn}"
+            config_save "${nas_config_file}" "${var_disk_wwn}" "${!new_disk_wwn}" || res=1
+            config_dirty=1
+          else
+            log_output+="\n  WWN  : ${!var_disk_wwn}"
+          fi
+        else
+          log_output+=":"
+          log_output+="\n  Path : ${!var_disk_path}"
+          log_output+="\n  SN   : ${!var_disk_sn}"
+          log_output+="\n  WWN  : ${!var_disk_wwn}"
+        fi
       fi
-      config_save "${nas_config_file}" "${var_old_sn}" "${!var_new_sn}"
-      config_dirty=1
-    else
-      logOutput+="  SN: ${!var_old_sn}\n"
-    fi
-    if [[ "${!var_old_wwn}" != "${!var_new_wwn}" ]]; then
-      if [[ -n "${!var_old_wwn}" ]]; then
-        logOutput+="  WWN: ${!var_old_wwn} -> ${!var_new_wwn}\n"
-      else
-        logOutput+="  WWN: ${!var_new_wwn} (new)\n"
-      fi
-      config_save "${nas_config_file}" "${var_old_wwn}" "${!var_new_wwn}"
-      config_dirty=1
-    else
-      logOutput+="  WWN: ${!var_old_wwn}\n"
     fi
   done
 
-  logTrace "\nWe have the following drive configuration:\n${logOutput}"
+  logInfo "\nWe have the following drive configuration:\n${log_output}"
 
-  # Make sure the SR name is configured
-  if [[ -z "${NAS_STOR_NAME}" ]]; then
-    NAS_STOR_NAME="${DEFAULT_NAS_STOR_NAME}"
-    if ! config_save "${CONFIG_DIR}/storage.env" "NAS_STOR_NAME" "${NAS_STOR_NAME}"; then
-      logError "Failed to save NAS SR name"
-      return 1
-    fi
-  fi
-
-  # Make sure the VM name is configured
-  if [[ -z "${VM_NAME_NAS}" ]]; then
-    VM_NAME_NAS="${DEFAULT_VM_NAME_NAS}"
-    if ! config_save "${nas_config_file}" "VM_NAME_NAS" "${VM_NAME_NAS}"; then
-      logError "Failed to save NAS VM name"
-      return 1
-    fi
+  if [[ "${res}" -ne 0 ]]; then
+    logError "Failed to update NAS configuration"
+    return 1
   fi
 
   if [[ ${config_dirty} -eq 1 ]]; then
     logInfo "NAS configuration updated"
     if ! config_load "${nas_config_file}"; then
       logError "Failed to reload NAS configuration"
-      return 1
-    fi
-    if ! config_load "${CONFIG_DIR}/storage.env"; then
-      logError "Failed to reload storage configuration"
       return 1
     fi
   else
@@ -372,82 +329,98 @@ nas_identify_disks() {
 nas_storage_update() {
   local needs_update folder_nas
   needs_update=0
-  folder_nas="${CONFIG_DIR}/${NAS_STOR_NAME}"
+
+  if [[ -z "${XCP_DRIVE_SR_NAME}" ]]; then
+    logError "XCP_DRIVE_SR_NAME is not set"
+    return 1
+  fi
+  folder_nas="${CONFIG_DIR}/${XCP_DRIVE_SR_NAME}"
 
   if [[ -d "${folder_nas}" ]]; then
-    logInfo "NAS SR folder already exists"
+    logInfo "NAS disk folder already exists"
   else
-    logInfo "Creating NAS SR folder"
+    logInfo "Creating NAS disk folder"
     if ! mkdir -p "${folder_nas}"; then
-      logError "Failed to create NAS SR folder"
+      logError "Failed to create NAS storage folder"
       return 1
     fi
     needs_update=1
   fi
 
+  local -a nas_files
+  nas_files=$(ls -1 "${folder_nas}")
+  readarray -t nas_files <<<"${nas_files[@]}"
   local disk link cur_dev var_dev_name
-  for disk in 1 2 3 4 5 6; do
+  for disk in $(seq "${DRIVE_MAX}"); do
     var_dev_name="D${disk}_DEV"
-    link="${folder_nas}/Disk${disk}"
-    if [[ -L "${link}" ]]; then
-      cur_dev=$(readlink -f "${link}")
-      if [[ "${cur_dev}" != "/dev/${!var_dev_name}" ]]; then
-        logWarn "Link to Disk ${disk} needs update"
-        needs_update=1
+    if [[ -n "${!var_dev_name}" ]]; then
+      link="${folder_nas}/${var_dev_name}"
+      if [[ -L "${link}" ]]; then
+        cur_dev=$(readlink -f "${link}")
+        if [[ "${cur_dev}" != "/dev/${!var_dev_name}" ]]; then
+          logWarn "Link to Disk ${disk} needs update"
+          needs_update=1
+        else
+          logTrace "Link for Disk ${disk} already up-to-date"
+        fi
       else
-        logTrace "Link for Disk ${disk} already up-to-date"
+        logInfo "Need to create link for Disk ${disk}"
+        needs_update=1
       fi
-    else
-      logInfo "Need to create link for Disk ${disk}"
-      needs_update=1
+      # Remove from the list
+      nas_files=("${nas_files[@]/${var_dev_name}/}")
     fi
   done
 
+  # Are there any files remaining?
+  if [[ ${#nas_files[@]} -gt 0 ]]; then
+    logWarn "Found extra files in ${XCP_DRIVE_SR_NAME} storage folder: ${nas_files[*]}"
+    needs_update=1
+  fi
+
   local state res
   if [[ ${needs_update} -eq 1 ]]; then
-
     # Make sure it's unmounted first, before modifying it
     if ! nas_storage_unmount; then
-      logError "Failed to unmount NAS SR first"
+      logError "Failed to unmount ${XCP_DRIVE_SR_NAME} storage first"
       return 1
     fi
 
-    # Update all the simlinks
-    for disk in 1 2 3 4 5 6; do
+    # Delete all files in the folder
+    if ! rm -rf "${folder_nas:?}"/*; then
+      logError "Failed to clean up ${XCP_DRIVE_SR_NAME} storage folder"
+      return 1
+    fi
+
+    # Create all the simlinks
+    for disk in in $(seq "${DRIVE_MAX}"); do
       var_dev_name="D${disk}_DEV"
-      link="${folder_nas}/Disk${disk}"
-      if [[ -L "${link}" ]]; then
-        logInfo "Removing link for Disk ${disk}"
-        if ! rm -f "${link}"; then
-          logError "Failed to remove link for Disk ${disk}"
+      if [[ -n "${!var_dev_name}" ]]; then
+        if ! ln -s "/dev/${!var_dev_name}" "${folder_nas}/${!var_dev_name}"; then
+          logError "Failed to create link for Disk ${disk}"
           return 1
         fi
-      fi
-      logInfo "Creating link for Disk ${disk}"
-      if ! ln -s "/dev/${!var_dev_name}" "${link}"; then
-        logError "Failed to create link for Disk ${disk}"
-        return 1
       fi
     done
 
     # Check if the SR exists
-    xe_stor_uuid_by_name state "${NAS_STOR_NAME}"
+    xe_stor_uuid_by_name state "${XCP_DRIVE_SR_NAME}"
     res=$?
     if [[ ${res} -eq 1 ]]; then
-      logError "Failed to check the existence of the NAS SR"
+      logError "Failed to check the existence of the ${XCP_DRIVE_SR_NAME} SR"
       return 1
     fi
 
     if [[ ${res} -eq 2 ]]; then
       # Create the NAS SR
-      if ! xe_stor_create_udev res "${NAS_STOR_NAME}" "${folder_nas}"; then
-        logError "Failed to create the NAS SR"
+      if ! xe_stor_create_udev res "${XCP_DRIVE_SR_NAME}" "${folder_nas}"; then
+        logError "Failed to create the ${XCP_DRIVE_SR_NAME} SR"
         return 1
       fi
     else
       # Plug the SR back in
-      if ! xe_stor_plug "${NAS_STOR_NAME}"; then
-        logError "Failed to plug the NAS SR"
+      if ! xe_stor_plug "${XCP_DRIVE_SR_NAME}"; then
+        logError "Failed to plug the ${XCP_DRIVE_SR_NAME} SR"
         return 1
       fi
     fi
@@ -456,11 +429,14 @@ nas_storage_update() {
   return 0
 }
 
+drive_test() {
+  nas_identify_disks
+  return $?
+}
+
 # Variables loaded externally
 
 # Constants
-DEFAULT_NAS_STOR_NAME="qnap_nas"
-DEFAULT_VM_NAME_NAS="Halley"
 
 ###########################
 ###### Startup logic ######
@@ -515,5 +491,7 @@ elif [[ ${BASH_SOURCE[0]} != "${0}" ]]; then
   :
 else
   # This script was executed
-  logFatal "This script cannot be executed"
+  # logFatal "This script cannot be executed"
+  drive_test
+  exit $?
 fi
