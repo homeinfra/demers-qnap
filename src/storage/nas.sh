@@ -42,6 +42,7 @@ nas_storage_unmount() {
     return 1
   elif [[ ${res} -eq 2 ]]; then
     logInfo "SR ${XCP_DRIVE_SR_NAME} does not exist"
+    return 0
   else
     logTrace "SR ${XCP_DRIVE_SR_NAME} exists"
     local users_uuids
@@ -178,39 +179,49 @@ nas_identify_disks() {
   fi
 
   # For each disk, look at the controller we expect to find it on
+  local var_controller
   for i in $(seq 1 "${DRIVE_MAX}"); do
+    logTrace "Searching for Drive ${i}"
     var_disk_ctrl="DRIVE${i}_CTRL"
-    var_disk_cnt="c_count[${!var_disk_ctrl}]"
+    var_disk_ctrl="${!var_disk_ctrl}"
+    var_disk_cnt="${c_count[${var_disk_ctrl}]}"
     # For each drive counted on the controller
     d_lowest=0
-    for j in $(seq 1 "${!var_disk_cnt}"); do
-      var_disk_name="controller_${!var_disk_ctrl}[\"Disk${j}\"]"
-      var_disk_path="controller_${!var_disk_ctrl}[\"Disk${j}_PATH\"]"
+    ata_lowest=""
+    for j in $(seq 1 "${var_disk_cnt}"); do
+      var_controller="controller_${var_disk_ctrl}"
+      var_disk_name="${var_controller}[\"Disk${j}\"]"
+      var_disk_path="${var_controller}[\"Disk${j}_PATH\"]"
+      logTrace "Checking detection ${j} on controller ${var_disk_ctrl}: ${!var_disk_name} @ ${!var_disk_path}"
       if [[ -z "${!var_disk_name}" ]]; then
-        logTrace "Skipping Disk ${j} on controller ${!var_disk_ctrl}"
+        logTrace "Skipping Disk ${j} on controller ${var_disk_ctrl}"
         continue
       fi
       ata=$(echo "${!var_disk_path}" | awk -F'/' '{for (i=1; i<=NF; i++) if ($i ~ /ata/) {print $i; exit}}')
       if [[ -z "${ata_lowest}" ]]; then
         ata_lowest="${ata}"
-        d_lowest=${j}
+        d_lowest="${j}"
       elif [[ "${ata}" < "${ata_lowest}" ]]; then
         ata_lowest="${ata}"
         d_lowest="${j}"
       fi
     done
     if [[ ${d_lowest} -eq 0 ]]; then
-      logWarn "Disk ${i} does not fit with any detections on controller ${!var_disk_ctrl}"
+      logWarn "Disk ${i} does not fit with any detections on controller ${var_disk_ctrl}"
     else
-      logInfo "Disk ${i} is ${ata_lowest} on controller ${!var_disk_ctrl}"
-      var_disk_name="controller_${!var_disk_ctrl}[\"Disk${d_lowest}\"]"
-      var_disk_path="controller_${!var_disk_ctrl}[\"Disk${d_lowest}_PATH\"]"
-      var_disk_sn="controller_${!var_disk_ctrl}[\"Disk${d_lowest}_SN\"]"
-      var_disk_wwn="controller_${!var_disk_ctrl}[\"Disk${d_lowest}_WWN\"]"
+      logTrace "Disk ${i} is detection ${d_lowest} (${ata_lowest} on controller ${var_disk_ctrl})"
+      var_controller="controller_${var_disk_ctrl}"
+      var_disk_name="${var_controller}[\"Disk${d_lowest}\"]"
+      var_disk_path="${var_controller}[\"Disk${d_lowest}_PATH\"]"
+      var_disk_sn="${var_controller}[\"Disk${d_lowest}_SN\"]"
+      var_disk_wwn="${var_controller}[\"Disk${d_lowest}_WWN\"]"
       eval "disk_${i}[\"Name\"]=\"${!var_disk_name}\""
       eval "disk_${i}[\"Path\"]=\"${!var_disk_path}\""
       eval "disk_${i}[\"SN\"]=\"${!var_disk_sn}\""
       eval "disk_${i}[\"WWN\"]=\"${!var_disk_wwn}\""
+
+      # Erase name, so it doesn't get selected a second time
+      eval "${var_disk_name}=\"\""
     fi
   done
 
@@ -352,11 +363,12 @@ nas_storage_update() {
   local -a nas_files
   nas_files=$(ls -1 "${folder_nas}")
   readarray -t nas_files <<<"${nas_files[@]}"
+  logTrace "Found NAS files: ${nas_files[*]}"
   local disk link cur_dev var_dev_name
   for disk in $(seq "${DRIVE_MAX}"); do
     var_dev_name="D${disk}_DEV"
     if [[ -n "${!var_dev_name}" ]]; then
-      link="${folder_nas}/${var_dev_name}"
+      link="${folder_nas}/${!var_dev_name}"
       if [[ -L "${link}" ]]; then
         cur_dev=$(readlink -f "${link}")
         if [[ "${cur_dev}" != "/dev/${!var_dev_name}" ]]; then
@@ -370,13 +382,17 @@ nas_storage_update() {
         needs_update=1
       fi
       # Remove from the list
-      nas_files=("${nas_files[@]/${var_dev_name}/}")
+      nas_files=("${nas_files[@]/${!var_dev_name}/}")
     fi
   done
 
+  # This is on purpose to remove empty elements
+  # shellcheck disable=SC2206
+  nas_files=(${nas_files[@]})
+
   # Are there any files remaining?
   if [[ ${#nas_files[@]} -gt 0 ]]; then
-    logWarn "Found extra files in ${XCP_DRIVE_SR_NAME} storage folder: ${nas_files[*]}"
+    logWarn "Found ${#nas_files[@]} extra files in ${XCP_DRIVE_SR_NAME} storage folder: \"${nas_files[*]}\""
     needs_update=1
   fi
 
