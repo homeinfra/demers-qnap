@@ -75,12 +75,18 @@ nas_identify_disks() {
   local nas_config_file config_dirty
 
   # Load hardware configuration
-  if ! source "${NAS_ROOT}/data/hardware.env"; then
+  if ! config_load "${NAS_ROOT}/data/hardware.env"; then
     logError "Failed to load hardware configuration"
     return 1
   fi
 
-  if [[ -z "${CONFIG_DIR}" ]]; then
+  if [[ -z "${DRIVE_MAX}" ]]; then
+    logError "DRIVE_MAX is not set"
+    return 1
+  elif [[ -z "${DRIVE_CONTROLLERS}" ]]; then
+    logError "DRIVE_CONTROLLERS is not set"
+    return 1
+  elif [[ -z "${CONFIG_DIR}" ]]; then
     logError "CONFIG_DIR is not set"
     return 1
   fi
@@ -124,7 +130,7 @@ nas_identify_disks() {
   done
 
   # Sanity check, we expect to find exactly 6 disks
-  if [[ ${#candidate_disks[@]} -le ${DRIVE_MAX} ]]; then
+  if [[ ${#candidate_disks[@]} -lt ${DRIVE_MAX} ]]; then
     logError "Expected to find 6 disks at most, we found ${#candidate_disks[@]}."
     return 1
   fi
@@ -155,14 +161,14 @@ nas_identify_disks() {
       if [[ "${d_path}" == "${!var_ctrl_prefix}"* ]]; then
         disk_count=$((disk_count + 1))
         c_count[i]=$((c_count[i] + 1))
-        var_disk_name="controller_${i}[\"Disk${c_count[${i}]}\"]"
-        var_disk_path="controller_${i}[\"Disk${c_count[${i}]}_PATH\"]"
-        var_disk_sn="controller_${i}[\"Disk${c_count[${i}]}_SN\"]"
-        var_disk_wwn="controller_${i}[\"Disk${c_count[${i}]}_WWN\"]"
-        eval "${var_disk_name}=\"${disk}\""
-        eval "${var_disk_path}=\"${d_path}\""
-        eval "${var_disk_sn}=\"${d_sn}\""
-        eval "${var_disk_wwn}=\"${d_wwn}\""
+        var_disk_name="Disk${c_count[${i}]}"
+        var_disk_path="Disk${c_count[${i}]}_PATH"
+        var_disk_sn="Disk${c_count[${i}]}_SN"
+        var_disk_wwn="Disk${c_count[${i}]}_WWN"
+        eval "controller_${i}[\"${var_disk_name}\"]=\"${disk}\""
+        eval "controller_${i}[\"${var_disk_path}\"]=\"${d_path}\""
+        eval "controller_${i}[\"${var_disk_sn}\"]=\"${d_sn}\""
+        eval "controller_${i}[\"${var_disk_wwn}\"]=\"${d_wwn}\""
       fi
     done
   done
@@ -201,14 +207,10 @@ nas_identify_disks() {
       var_disk_path="controller_${!var_disk_ctrl}[\"Disk${d_lowest}_PATH\"]"
       var_disk_sn="controller_${!var_disk_ctrl}[\"Disk${d_lowest}_SN\"]"
       var_disk_wwn="controller_${!var_disk_ctrl}[\"Disk${d_lowest}_WWN\"]"
-      new_disk_name="disk_${i}[\"Name\"]"
-      new_disk_path="disk_${i}[\"Path\"]"
-      new_disk_sn="disk_${i}[\"SN\"]"
-      new_disk_wwn="disk_${i}[\"WWN\"]"
-      eval "${new_disk_name}=\"${!var_disk_name}\""
-      eval "${new_disk_path}=\"${!var_disk_path}\""
-      eval "${new_disk_sn}=\"${!var_disk_sn}\""
-      eval "${new_disk_wwn}=\"${!var_disk_wwn}\""
+      eval "disk_${i}[\"Name\"]=\"${!var_disk_name}\""
+      eval "disk_${i}[\"Path\"]=\"${!var_disk_path}\""
+      eval "disk_${i}[\"SN\"]=\"${!var_disk_sn}\""
+      eval "disk_${i}[\"WWN\"]=\"${!var_disk_wwn}\""
     fi
   done
 
