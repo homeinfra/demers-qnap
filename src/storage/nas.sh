@@ -509,7 +509,5 @@ elif [[ ${BASH_SOURCE[0]} != "${0}" ]]; then
   :
 else
   # This script was executed
-  # logFatal "This script cannot be executed"
-  drive_test
-  exit $?
+  logFatal "This script cannot be executed"
 fi
