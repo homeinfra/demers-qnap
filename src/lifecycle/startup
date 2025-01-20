@@ -45,7 +45,7 @@ startup_plugin() {
   for plugin in "${plugins[@]}"; do
     # Check if the plugin is executable
     if [[ -x "${plugin}" ]]; then
-      exec+=("${PLUGIN_DIR}/${plugin}")
+      exec+=("${plugin}")
     else
       logWarn "Plugin ${plugin} is not executable"
     fi
@@ -115,6 +115,8 @@ startup_init() {
   if ! config_load "${CONFIG_DIR}/email.env"; then
     logError "Failed to load QNAP configuration"
   fi
+
+  # Configure AGE key
 }
 
 info() {
@@ -175,6 +177,14 @@ if [[ -z "${PREFIX}" ]]; then
   else
     PREFIX="${HOME}/.local"
   fi
+fi
+
+# First, source the shell environment
+export HOME="/root"
+# shellcheck disable=SC1091
+if ! source "/root/.bashrc"; then
+  echo "Failed to source /root/.bashrc"
+  exit 1
 fi
 
 # Import dependencies
