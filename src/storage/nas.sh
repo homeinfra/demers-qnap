@@ -52,7 +52,7 @@ nas_storage_unmount() {
     fi
     for res in "${users_uuids[@]}"; do
       # Make sure the VM is halted
-      if ! xe_vm_shutdown "${res}"; then
+      if ! xe_vm_shutdown_by_id "${res}"; then
         logError "Failed to shutdown VM ${res}"
         return 1
       fi
