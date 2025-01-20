@@ -26,7 +26,7 @@ nas_storage_mount() {
 
 # Unmount the NAS storage (usually during shutdown)
 nas_storage_unmount() {
-  local state res
+  local res
 
   # Validate requirements
   if [[ -z "${XCP_DRIVE_SR_NAME}" ]]; then
@@ -35,7 +35,7 @@ nas_storage_unmount() {
   fi
 
   # Check if a SR exists
-  xe_stor_uuid_by_name state "${XCP_DRIVE_SR_NAME}"
+  xe_stor_uuid_by_name dummy "${XCP_DRIVE_SR_NAME}"
   res=$?
   if [[ ${res} -eq 1 ]]; then
     logError "Failed to check the existence of the ${XCP_DRIVE_SR_NAME} SR"
@@ -52,14 +52,9 @@ nas_storage_unmount() {
     fi
     for res in "${users_uuids[@]}"; do
       # Make sure the VM is halted
-      if ! xe_vm_state_by_id state "${res}"; then
-        logError "Failed to get state of VM ${res}: ${state}"
+      if ! xe_vm_shutdown "${res}"; then
+        logError "Failed to shutdown VM ${res}"
         return 1
-      elif [[ "${state}" != "halted" ]] && [[ "${state}" != "not_exist" ]]; then
-        logError "VM ${res} is currently in state ${state}. We cannot modify the SR"
-        return 1
-      else
-        logTrace "VM ${res} is in state ${state}, not preventing SR disconnect"
       fi
     done
   fi
@@ -396,7 +391,7 @@ nas_storage_update() {
     needs_update=1
   fi
 
-  local state res
+  local res
   if [[ ${needs_update} -eq 1 ]]; then
     # Make sure it's unmounted first, before modifying it
     if ! nas_storage_unmount; then
@@ -420,27 +415,27 @@ nas_storage_update() {
         fi
       fi
     done
+  fi
 
-    # Check if the SR exists
-    xe_stor_uuid_by_name state "${XCP_DRIVE_SR_NAME}"
-    res=$?
-    if [[ ${res} -eq 1 ]]; then
-      logError "Failed to check the existence of the ${XCP_DRIVE_SR_NAME} SR"
+  # Check if the SR exists
+  xe_stor_uuid_by_name dummy "${XCP_DRIVE_SR_NAME}"
+  res=$?
+  if [[ ${res} -eq 1 ]]; then
+    logError "Failed to check the existence of the ${XCP_DRIVE_SR_NAME} SR"
+    return 1
+  fi
+
+  if [[ ${res} -eq 2 ]]; then
+    # Create the NAS SR
+    if ! xe_stor_create_udev res "${XCP_DRIVE_SR_NAME}" "${folder_nas}"; then
+      logError "Failed to create the ${XCP_DRIVE_SR_NAME} SR"
       return 1
     fi
-
-    if [[ ${res} -eq 2 ]]; then
-      # Create the NAS SR
-      if ! xe_stor_create_udev res "${XCP_DRIVE_SR_NAME}" "${folder_nas}"; then
-        logError "Failed to create the ${XCP_DRIVE_SR_NAME} SR"
-        return 1
-      fi
-    else
-      # Plug the SR back in
-      if ! xe_stor_plug "${XCP_DRIVE_SR_NAME}"; then
-        logError "Failed to plug the ${XCP_DRIVE_SR_NAME} SR"
-        return 1
-      fi
+  else
+    # Plug the SR back in
+    if ! xe_stor_plug "${XCP_DRIVE_SR_NAME}"; then
+      logError "Failed to plug the ${XCP_DRIVE_SR_NAME} SR"
+      return 1
     fi
   fi
 
