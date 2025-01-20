@@ -55,6 +55,12 @@ storage_mount() {
   if ! config_load "${STOR_FILE}"; then
     logError "Failed to load storage configuration"
     return 1
+  elif [[ -z "${XCP_VM_SR_NAME}" ]]; then
+    logError "Missing XCP_VM_SR_NAME"
+    return 1
+  elif [[ -z "${XCP_ISO_SR_NAME}" ]]; then
+    logError "Missing XCP_ISO_SR_NAME"
+    return 1
   fi
 
   # Validate current state
@@ -177,10 +183,10 @@ storage_mount() {
   fi
 
   # Plug the storage
-  if ! xe_stor_plug "${VM_STOR_NAME}"; then
+  if ! xe_stor_plug "${XCP_VM_SR_NAME}"; then
     logError "Failed to plug VM storage"
     return 1
-  elif ! xe_stor_plug "${ISO_STOR_NAME}"; then
+  elif ! xe_stor_plug "${XCP_ISO_SR_NAME}"; then
     logError "Failed to plug ISO storage"
     return 1
   else
@@ -234,7 +240,7 @@ storage_unmount() {
   fi
 
   # Second: ISO Storage
-  if ! xe_stor_unplug "${ISO_STOR_NAME}"; then
+  if ! xe_stor_unplug "${XCP_ISO_SR_NAME}"; then
     logError "Failed to unplug ISO storage"
     __return_code=1
   fi
@@ -266,7 +272,7 @@ storage_unmount() {
   fi
 
   # Third: VM Storage
-  if ! xe_stor_unplug "${VM_STOR_NAME}"; then
+  if ! xe_stor_unplug "${XCP_VM_SR_NAME}"; then
     logError "Failed to unplug VM storage"
     __return_code=1
   fi
@@ -358,7 +364,7 @@ storage_create() {
   fi
 
   # Fourth, create the XCP-ng Storage Record (SR) on this new drive
-  if ! xe_stor_create_lvm res "${VM_STOR_NAME}" "${VM_STOR_DRIVE}"; then
+  if ! xe_stor_create_lvm res "${XCP_VM_SR_NAME}" "${VM_STOR_DRIVE}"; then
     logError "Failed to create SR record for VM storage"
     return 1
   else
@@ -405,7 +411,7 @@ storage_create() {
   fi
 
   # Fifth, create the XCP-ng Storage Record (SR) on it
-  if ! xe_stor_create_iso res "${ISO_STOR_NAME}" "${ISO_STOR_PATH}"; then
+  if ! xe_stor_create_iso res "${XCP_ISO_SR_NAME}" "${ISO_STOR_PATH}"; then
     logError "Failed to create SR record for ISO storage"
     return 1
   else
@@ -426,7 +432,7 @@ storage_create() {
 
   # If we reached here, everything was created successfully. Now unload it all
   res=0
-  if ! xe_stor_unplug "${VM_STOR_NAME}"; then
+  if ! xe_stor_unplug "${XCP_VM_SR_NAME}"; then
     logError "Failed to unplug VM storage"
     res=1
   elif ! disk_remove_raid "${VM_STOR_DRIVE}"; then
@@ -439,7 +445,7 @@ storage_create() {
     logInfo "VM Storage disconnected"
   fi
 
-  if ! xe_stor_unplug "${ISO_STOR_NAME}"; then
+  if ! xe_stor_unplug "${XCP_ISO_SR_NAME}"; then
     logError "Failed to unplug ISO storage"
     res=1
   elif ! umount "${ISO_STOR_PATH}"; then
@@ -589,9 +595,6 @@ EOF
   elif ! config_save "${STOR_FILE}" VM_STOR_DRIVE "md10"; then
     logError "Failed to save VM_STOR_DRIVE"
     return 1
-  elif ! config_save "${STOR_FILE}" VM_STOR_NAME "qnap_vm"; then
-    logError "Failed to save VM_STOR_NAME"
-    return 1
   else
     logInfo "Storage configuration saved for VM storage"
   fi
@@ -635,9 +638,6 @@ EOF
   elif ! config_save "${STOR_FILE}" ISO_STOR_PATH "/mnt/iso_store"; then
     logError "Failed to save ISO_STOR_PATH"
     return 1
-  elif ! config_save "${STOR_FILE}" ISO_STOR_NAME "qnap_iso"; then
-    logError "Failed to save ISO_STOR_NAME"
-    return 1
   else
     logInfo "Storage configuration saved for ISO storage"
   fi
@@ -657,8 +657,6 @@ EOF
 if [[ -z "${CONFIG_DIR}" ]]; then CONFIG_DIR=""; fi
 if [[ -z "${VM_STOR_DRIVE}" ]]; then VM_STOR_DRIVE=""; fi
 if [[ -z "${ISO_STOR_PATH}" ]]; then ISO_STOR_PATH=""; fi
-if [[ -z "${ISO_STOR_NAME}" ]]; then ISO_STOR_NAME=""; fi
-if [[ -z "${VM_STOR_NAME}" ]]; then VM_STOR_NAME=""; fi
 
 ###########################
 ###### Startup logic ######
