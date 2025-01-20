@@ -74,7 +74,7 @@ shutdown_plugin() {
   for plugin in "${plugins[@]}"; do
     # Check if the plugin is executable
     if [[ -x "${plugin}" ]]; then
-      exec+=("${PLUGIN_DIR}/${plugin}")
+      exec+=("${plugin}")
     else
       logWarn "Plugin ${plugin} is not executable"
     fi
