@@ -147,7 +147,7 @@ else
   if [[ \$? -ne 0 ]]; then
     logError "Failed to send SMART notification to XCP-ng"
   else
-    logInfo "SMART notification sent to XCP-ng"
+    logInfo "RAID notification sent to XCP-ng"
   fi
 fi
 
@@ -208,9 +208,9 @@ md_test() {
   return 0
 }
 
-# External variables loaded
-SYSADMIN=""
-SENDER=""
+# Variables loaded externally
+if [[ -z "${SENDER}" ]]; then SENDER=""; fi
+if [[ -z "${SYSADMIN}" ]]; then SYSADMIN=""; fi
 
 ###########################
 ###### Startup logic ######

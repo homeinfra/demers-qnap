@@ -31,10 +31,18 @@
 # https://github.com/guedou/TS-453Be/blob/master/doc/fan_control.md#running-qnap-in-a-chroot
 
 qnap_hal_dependencies() {
-  if ! pkg_install "python3" "python3-pip" "python3-devel"; then
+
+  # == For XCP-ng 8.2.1 ==
+  if ! pkg_install_from "*" "python3" "python3-pip" "python3-devel"; then
     logError "Failed to install python3"
     return 1
   fi
+
+  # == For XCP-ng 8.3 ==
+  # if ! pkg_install "python3" "python3-pip" "python3-devel"; then
+  #   logError "Failed to install python3"
+  #   return 1
+  # fi
 
   if ! pip_install "python-daemon==2.3.2" "portio==0.6.2" "python-dotenv==0.20.0" "pyserial==3.5"; then
     logError "Failed to install required python modules"
@@ -53,16 +61,16 @@ qnap_hal_install() {
     return 1
   fi
 
-  if [[ -z "${QN_ID}" ]]; then
-    logError "QN_ID is not set"
+  if [[ -z "${QN_TAR}" ]]; then
+    logError "QN_TAR is not set"
     return 1
   fi
 
   local install_root="${BIN_DIR}/hal"
-  local installer="${QN_ROOT}/data/hal_${QN_ID}.tar.gz"
+  local installer="${QN_ROOT}/data/${QN_TAR}"
 
   if [[ ! -d "${install_root}" ]] || [[ -z "$(ls -A "${install_root}" || true)" ]]; then
-    logTrace "Installing HAL for ${QN_ID}"
+    logTrace "Installing HAL using ${installer}"
 
     if [[ ! -f "${installer}" ]]; then
       logError "Installer not found: ${installer}"
@@ -79,7 +87,7 @@ qnap_hal_install() {
       return 1
     fi
   else
-    logInfo "HAL for ${QN_ID} is already installed"
+    logInfo "HAL ${QN_TAR} is already installed"
   fi
 
   local res
@@ -100,6 +108,16 @@ qnap_hal_install() {
 
   # shellcheck disable=SC2248
   return ${res}
+}
+
+qnap_hal_deinit() {
+  if [[ -f "${QN_HAL_INIT_FILE}" ]]; then
+    if ! rm -f "${QN_HAL_INIT_FILE}"; then
+      logError "Failed to remove ${QN_HAL_INIT_FILE}"
+      return 1
+    fi
+  fi
+  return 0
 }
 
 qnap_hal_init() {

@@ -8,7 +8,7 @@
 #   1: Failure
 #   2: Reboot required
 passthrough_configure() {
-  if [[ -z "${QN_STORAGE_PASS_THROUGH}" ]]; then
+  if [[ -z "${PCI_STORAGE}" ]]; then
     warn "No PCI passthrough configuration found"
     return 1
   fi
@@ -17,7 +17,7 @@ passthrough_configure() {
   local pci_array
   local IFS=','
   # Read the input string into an array
-  read -ra pci_array <<<"${QN_STORAGE_PASS_THROUGH}"
+  read -ra pci_array <<<"${PCI_STORAGE}"
   for pci in "${pci_array[@]}"; do
     local desc
     desc=$(lspci -s "${pci}")

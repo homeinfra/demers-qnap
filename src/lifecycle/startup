@@ -13,6 +13,10 @@ startup_main() {
     error "Failed to mount storage"
   fi
 
+  if ! startup_plugin; then
+    error "Failed to start plugins"
+  fi
+
   # Startup complete
   if ! "${HOME_BIN}/qhal" lcd off; then
     error "Failed to turn off LCD"
@@ -22,6 +26,46 @@ startup_main() {
   fi
 
   info "Startup complete"
+  return 0
+}
+
+startup_plugin() {
+  # Start all plugins
+  local plugins
+  local exec=()
+
+  if [[ -z "${PLUGIN_DIR}" ]]; then
+    warn "No plugin directory set"
+    return 0
+  fi
+
+  plugins=$(ls -1 "${PLUGIN_DIR}/start_"*)
+  readarray -t plugins <<<"${plugins[@]}"
+
+  for plugin in "${plugins[@]}"; do
+    # Check if the plugin is executable
+    if [[ -x "${plugin}" ]]; then
+      exec+=("${plugin}")
+    else
+      logWarn "Plugin ${plugin} is not executable"
+    fi
+  done
+
+  # Execute all plugins
+  local res code
+  for runnable in "${exec[@]}"; do
+    res=$("${runnable}" 2>&1)
+    code=$?
+    if [[ ${code} -ne 0 ]]; then
+      error "Plugin failed (${code}): ${runnable}"
+      logError <<EOF
+Executable ${runnable} returned with: ${code}
+Output:
+${res}"
+EOF
+    fi
+  done
+
   return 0
 }
 
@@ -37,7 +81,7 @@ hardware_init() {
   fi
 
   # Register USB Copy Button to perform a total shutdown
-  local sh_cmd="${ST_ROOT}/src/lifecycle/shutdown.sh"
+  local sh_cmd="${ST_ROOT}/src/lifecycle/shutdown"
   if ! "${HOME_BIN}/qhal" button USB_Copy -- "${sh_cmd}" -e all; then
     error "Failed to register USB Copy button for full shutdown"
   else
@@ -65,9 +109,14 @@ startup_init() {
   if ! config_load "${ST_ROOT}/data/local.env"; then
     logError "Failed to load local configuration"
   fi
+  if [[ -z "${CONFIG_DIR}" ]]; then
+    logError "CONFIG_DIR is not set"
+  fi
   if ! config_load "${CONFIG_DIR}/email.env"; then
     logError "Failed to load QNAP configuration"
   fi
+
+  # Configure AGE key
 }
 
 info() {
@@ -95,7 +144,7 @@ error() {
 }
 
 # Variables loaded externally
-HOME_BIN=""
+if [[ -z "${HOME_BIN}" ]]; then HOME_BIN=""; fi
 
 # XCP-ng message levels
 LVL_ERROR=1
@@ -130,8 +179,16 @@ if [[ -z "${PREFIX}" ]]; then
   fi
 fi
 
+# First, source the shell environment
+export HOME="/root"
+# shellcheck disable=SC1091
+if ! source "/root/.bashrc"; then
+  echo "Failed to source /root/.bashrc"
+  exit 1
+fi
+
 # Import dependencies
-SETUP_REPO_DIR="${ST_ROOT}/external/setup"
+XAPI_REPO_DIR="${ST_ROOT}/external/xapi.sh"
 # shellcheck disable=SC1091
 if ! source "${PREFIX}/lib/slf4.sh"; then
   echo "Failed to import slf4.sh"
@@ -149,7 +206,8 @@ fi
 if ! source "${ST_ROOT}/src/storage/storage.sh"; then
   logFatal "Failed to import storage.sh"
 fi
-if ! source "${ST_ROOT}/external/xapi.sh/src/xe_utils.sh"; then
+# shellcheck disable=SC1091
+if ! source "${XAPI_REPO_DIR}/src/xe_utils.sh"; then
   logFatal "Failed to import xe_utils.sh"
 fi
 

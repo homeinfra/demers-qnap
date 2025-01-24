@@ -55,6 +55,12 @@ storage_mount() {
   if ! config_load "${STOR_FILE}"; then
     logError "Failed to load storage configuration"
     return 1
+  elif [[ -z "${XCP_VM_SR_NAME}" ]]; then
+    logError "Missing XCP_VM_SR_NAME"
+    return 1
+  elif [[ -z "${XCP_ISO_SR_NAME}" ]]; then
+    logError "Missing XCP_ISO_SR_NAME"
+    return 1
   fi
 
   # Validate current state
@@ -63,8 +69,7 @@ storage_mount() {
     :
     ;;
   mounted)
-    logInfo "Storage already mounted"
-    return 0
+    :
     ;;
   *)
     logError "Invalid state for storage: ${STOR_STATE}"
@@ -72,52 +77,120 @@ storage_mount() {
     ;;
   esac
 
-  # First: VM Storage
+  # Validat that the configuration makes sense
+
+  # Only support the case where DISK2 isn't at the beggining of the drive. We need to mount a loop device for it
   if [[ ${VM_STOR_DRIVE1_START} -ne 0 ]] || [[ ${VM_STOR_DRIVE2_START} -le 0 ]] || [[ ${VM_STOR_SIZE} -le 0 ]]; then
     logError "Invalid configuration for VM storage: ${VM_STOR_DRIVE1_START} ${VM_STOR_DRIVE2_START} ${VM_STOR_SIZE}"
     return 1
   fi
 
-  # Only support the case where DISK2 isn't at the beggining of the drive. We need to mount a loop device for it
-  local vm_loop_device
-  if ! disk_create_loop vm_loop_device "${VM_STOR_DRIVE2}" "${VM_STOR_DRIVE2_START}" "${VM_STOR_SIZE}"; then
-    logError "Failed to create loop device for VM storage"
-    return 1
-  elif ! config_save "${STOR_FILE}" VM_STOR_LOOP2 "${vm_loop_device}"; then
-    logError "Failed to save VM_STOR_LOOP2"
-    return 1
-  elif ! disk_assemble_radi1 "${VM_STOR_DRIVE}" "${VM_STOR_DRIVE1}" "${vm_loop_device}"; then
-    logError "Failed to assemble RAID 1 array for VM storage"
-    return 1
-  elif ! xe_stor_plug "${VM_STOR_NAME}"; then
-    logError "Failed to plug VM storage"
-    return 1
-  else
-    logInfo "VM storage connected"
-  fi
-
-  # Second: ISO Storage
+  # Only support the case where storage isn't at the beginning of the drive. We need to mount a loop device for it
   if [[ ${ISO_STOR_START} -le 0 ]] || [[ ${ISO_STOR_SIZE} -le 0 ]]; then
     logError "Invalid configuration for ISO storage: ${ISO_STOR_START} ${ISO_STOR_SIZE}"
     return 1
   fi
 
-  # Only support the case where storage isn't at the beginning of the drive. We need to mount a loop device for it
-  local iso_loop_device
-  if ! disk_create_loop iso_loop_device "${ISO_STOR_DRIVE}" "${ISO_STOR_START}" "${ISO_STOR_SIZE}"; then
-    logError "Failed to create loop device for ISO storage"
+  # Check if necessary loop devices are already created or not
+  local loop_devices loop_device vm_loop_device iso_loop_device
+  if ! disk_list_loop loop_devices; then
+    logError "Failed to list loop devices"
     return 1
-  elif ! config_save "${STOR_FILE}" "ISO_STOR_LOOP" "${iso_loop_device}"; then
-    logError "Failed to save ISO_STOR_LOOP"
+  fi
+  for loop_device in "${loop_devices[@]}"; do
+    local back_file offset size
+    if ! disk_loop_details back_file offset size "${loop_device}"; then
+      logError "Failed to get details for loop device: ${loop_device}"
+      return 1
+    elif [[ ${back_file} == "${VM_STOR_DRIVE2}" ]] && [[ ${offset} -eq ${VM_STOR_DRIVE2_START} ]] && [[ ${size} -eq ${VM_STOR_SIZE} ]]; then
+      vm_loop_device=${loop_device}
+      logInfo "Found existing loop device for VM storage: ${vm_loop_device}"
+      if [[ "${loop_device}" != "${VM_STOR_LOOP2}" ]]; then
+        logWarn "VM_STOR_LOOP2 was expected to be ${VM_STOR_LOOP2}, but is ${loop_device}"
+        if ! config_save "${STOR_FILE}" VM_STOR_LOOP2 "${vm_loop_device}"; then
+          logError "Failed to save VM_STOR_LOOP2"
+          return 1
+        fi
+        VM_STOR_LOOP2=${vm_loop_device}
+      fi
+      continue
+    elif [[ ${back_file} == "${ISO_STOR_DRIVE}" ]] && [[ ${offset} -eq ${ISO_STOR_START} ]] && [[ ${size} -eq ${ISO_STOR_SIZE} ]]; then
+      iso_loop_device=${loop_device}
+      logInfo "Found existing loop device for ISO storage: ${iso_loop_device}"
+      if [[ "${loop_device}" != "${ISO_STOR_LOOP}" ]]; then
+        logWarn "ISO_STOR_LOOP was expected to be ${ISO_STOR_LOOP}, but is ${loop_device}"
+        if ! config_save "${STOR_FILE}" ISO_STOR_LOOP "${iso_loop_device}"; then
+          logError "Failed to save ISO_STOR_LOOP"
+          return 1
+        fi
+        ISO_STOR_LOOP=${iso_loop_device}
+      fi
+      continue
+    else
+      logWarn "Found unexpected loop device: ${loop_device} ${back_file} ${offset} ${size}"
+    fi
+  done
+
+  # First: VM Storage
+  if [[ -z ${vm_loop_device} ]]; then
+    logInfo "Creating loop device for VM storage"
+    if ! disk_create_loop vm_loop_device "${VM_STOR_DRIVE2}" "${VM_STOR_DRIVE2_START}" "${VM_STOR_SIZE}"; then
+      logError "Failed to create loop device for VM storage"
+      return 1
+    elif ! config_save "${STOR_FILE}" VM_STOR_LOOP2 "${vm_loop_device}"; then
+      logError "Failed to save VM_STOR_LOOP2"
+      return 1
+    else
+      logInfo "Loop device created for VM storage: ${vm_loop_device}"
+    fi
+  fi
+
+  # Second: ISO Storage
+  if [[ -z ${iso_loop_device} ]]; then
+    logInfo "Creating loop device for ISO storage"
+    if ! disk_create_loop iso_loop_device "${ISO_STOR_DRIVE}" "${ISO_STOR_START}" "${ISO_STOR_SIZE}"; then
+      logError "Failed to create loop device for ISO storage"
+      return 1
+    elif ! config_save "${STOR_FILE}" ISO_STOR_LOOP "${iso_loop_device}"; then
+      logError "Failed to save ISO_STOR_LOOP"
+      return 1
+    else
+      logInfo "Loop device created for ISO storage: ${iso_loop_device}"
+    fi
+  fi
+
+  # Assemble the RAID1 array for the VM storage
+  if ! disk_assemble_radi1 "${VM_STOR_DRIVE}" "${VM_STOR_DRIVE1}" "${vm_loop_device}"; then
+    logError "Failed to assemble RAID 1 array for VM storage"
     return 1
-  elif ! mount "/dev/${iso_loop_device}" "${ISO_STOR_PATH}"; then
-    logError "Failed to mount ISO storage"
+  else
+    logInfo "RAID 1 array assembled for VM storage"
+  fi
+
+  # Check if ISO storage is already mounted
+  local res
+  # shellcheck disable=SC2312 # Grep will fail anyway it doesn't find the string
+  if ! mount | grep -q "${ISO_STOR_PATH}"; then
+    logInfo "Mounting ISO storage"
+    if ! mount "/dev/${iso_loop_device}" "${ISO_STOR_PATH}"; then
+      logError "Failed to mount ISO storage"
+      return 1
+    else
+      logInfo "ISO storage mounted"
+    fi
+  else
+    logInfo "ISO storage already mounted"
+  fi
+
+  # Plug the storage
+  if ! xe_stor_plug "${XCP_VM_SR_NAME}"; then
+    logError "Failed to plug VM storage"
     return 1
-  elif ! xe_stor_plug "${ISO_STOR_NAME}"; then
+  elif ! xe_stor_plug "${XCP_ISO_SR_NAME}"; then
     logError "Failed to plug ISO storage"
     return 1
   else
-    logInfo "ISO Storage connected"
+    logInfo "Storage connected"
   fi
 
   # Save the configuration as mounted
@@ -128,10 +201,18 @@ storage_mount() {
     logInfo "Storage mounted"
   fi
 
+  # Also setup storage used by NAS
+  if ! nas_storage_mount; then
+    logError "Failed to setup NAS storage"
+    return 1
+  fi
+
   return 0
 }
 
 storage_unmount() {
+  local __return_code=0
+
   STOR_FILE="${CONFIG_DIR}/storage.env"
   if ! config_load "${STOR_FILE}"; then
     logError "Failed to load storage configuration"
@@ -144,8 +225,7 @@ storage_unmount() {
     :
     ;;
   created)
-    logInfo "Storage already unmounted"
-    return 0
+    :
     ;;
   *)
     logError "Invalid state for storage: ${STOR_STATE}"
@@ -153,42 +233,63 @@ storage_unmount() {
     ;;
   esac
 
-  # First: ISO Storage
-  if ! xe_stor_unplug "${ISO_STOR_NAME}"; then
+  # First: NAS Storage
+  if ! nas_storage_unmount; then
+    logError "Failed to unmount NAS storage"
+    __return_code=1
+  fi
+
+  # Second: ISO Storage
+  if ! xe_stor_unplug "${XCP_ISO_SR_NAME}"; then
     logError "Failed to unplug ISO storage"
-    return 1
-  elif ! umount "${ISO_STOR_PATH}"; then
-    logError "Failed to unmount ISO storage"
-    return 1
-  elif [[ -z ${ISO_STOR_LOOP} ]]; then
+    __return_code=1
+  fi
+  # shellcheck disable=SC2312 # Grep will fail anyway it doesn't find the string
+  if mount | grep -q "${ISO_STOR_PATH}"; then
+    if ! umount "${ISO_STOR_PATH}"; then
+      logError "Failed to unmount ISO storage"
+      __return_code=1
+    else
+      logInfo "ISO storage unmounted"
+    fi
+  else
+    logInfo "ISO storage already unmounted"
+  fi
+  if [[ -z ${ISO_STOR_LOOP} ]]; then
     logError "Missing loop device for ISO storage"
-    return 1
+    __return_code=1
   elif ! disk_remove_loop "${ISO_STOR_LOOP}"; then
     logError "Failed to remove loop device for ISO storage"
-    return 1
-  elif ! config_save "${STOR_FILE}" ISO_STOR_LOOP ""; then
+    __return_code=1
+  else
+    logInfo "Loop device removed for ISO storage"
+  fi
+  if ! config_save "${STOR_FILE}" ISO_STOR_LOOP ""; then
     logError "Failed to remove ISO_STOR_LOOP"
-    return 1
+    __return_code=1
   else
     logInfo "ISO storage disconnected"
   fi
 
-  # Second: VM Storage
-  if ! xe_stor_unplug "${VM_STOR_NAME}"; then
+  # Third: VM Storage
+  if ! xe_stor_unplug "${XCP_VM_SR_NAME}"; then
     logError "Failed to unplug VM storage"
-    return 1
-  elif ! disk_remove_raid "${VM_STOR_DRIVE}"; then
+    __return_code=1
+  fi
+  if ! disk_remove_raid "${VM_STOR_DRIVE}"; then
     logError "Failed to remove RAID array for VM storage"
-    return 1
-  elif [[ -z ${VM_STOR_LOOP2} ]]; then
+    __return_code=1
+  fi
+  if [[ -z ${VM_STOR_LOOP2} ]]; then
     logError "Missing loop device for VM storage"
-    return 1
+    __return_code=1
   elif ! disk_remove_loop "${VM_STOR_LOOP2}"; then
     logError "Failed to remove loop device for VM storage"
-    return 1
-  elif ! config_save "${STOR_FILE}" VM_STOR_LOOP2 ""; then
+    __return_code=1
+  fi
+  if ! config_save "${STOR_FILE}" VM_STOR_LOOP2 ""; then
     logError "Failed to remove VM_STOR_LOOP2"
-    return 1
+    __return_code=1
   else
     logInfo "RAID array removed for VM storage"
   fi
@@ -201,24 +302,30 @@ storage_unmount() {
     logInfo "Storage unmounted"
   fi
 
-  return 0
+  # shellcheck disable=SC2248
+  return ${__return_code}
 }
 
 storage_create() {
   if [[ -z ${VM_STOR_DRIVE1} ]] || [[ -z ${VM_STOR_DRIVE2} ]] || [[ -z ${VM_STOR_DRIVE1_START} ]] || [[ -z ${VM_STOR_DRIVE2_START} ]] || [[ -z ${VM_STOR_SIZE} ]]; then
+    # Are we given parameters for VM Storage
     logError "Missing configuration for VM storage"
     return 1
-  fi
-  if [[ "${VM_STOR_DRIVE1}" == "${VM_STOR_DRIVE2}" ]]; then
+  elif [[ "${VM_STOR_DRIVE1}" == "${VM_STOR_DRIVE2}" ]]; then
+    # Make sure VM Storage consist of two different drives (for RAID1)
     logError "VM storage drives are the same"
     return 1
-  fi
-  if [[ ${VM_STOR_DRIVE1_START} -ne 0 ]] || [[ ${VM_STOR_DRIVE2_START} -le 0 ]] || [[ ${VM_STOR_SIZE} -le 0 ]]; then
+  elif [[ ${VM_STOR_DRIVE1_START} -ne 0 ]] || [[ ${VM_STOR_DRIVE2_START} -le 0 ]] || [[ ${VM_STOR_SIZE} -le 0 ]]; then
+    # Currently we only support the scenario where DRIVE1 is at the beginning of the drive and DRIVE2 isn't
     logError "Invalid configuration for VM storage"
     return 1
-  fi
-  if [[ -z ${ISO_STOR_DRIVE} ]] || [[ -z ${ISO_STOR_START} ]] || [[ -z ${ISO_STOR_SIZE} ]]; then
+  elif [[ -z ${ISO_STOR_DRIVE} ]] || [[ -z ${ISO_STOR_START} ]] || [[ -z ${ISO_STOR_SIZE} ]] || [[ -z ${ISO_STOR_PATH} ]]; then
+    # Are we given parameters for ISO Storage
     logError "Missing configuration for ISO storage"
+    return 1
+  elif [[ ${ISO_STOR_START} -le 0 ]] || [[ ${ISO_STOR_SIZE} -le 0 ]]; then
+    # Currently we only support the scenario where DRIVE isn't at the beginning of the drive
+    logError "Invalid configuration for ISO storage"
     return 1
   fi
 
@@ -226,7 +333,21 @@ storage_create() {
   local iso_loop_device
   local res=0
 
-  # If we reach here, we've confirmed the need to create a loop device for drive 2
+  ################
+  ## VM Storage ##
+  ################
+  # First, wipe the first 34 sectors of both drives
+  if ! dd if=/dev/zero of="${VM_STOR_DRIVE1}" bs=512 count=34 seek="${VM_STOR_DRIVE1_START}"; then
+    logError "Failed to erase first 34 sectors of ${VM_STOR_DRIVE1}"
+    return 1
+  elif ! dd if=/dev/zero of="${VM_STOR_DRIVE2}" bs=512 count=34 seek="${VM_STOR_DRIVE2_START}"; then
+    logError "Failed to erase first 34 sectors of ${VM_STOR_DRIVE2}"
+    return 1
+  else
+    logInfo "First 34 sectors erased on both drives"
+  fi
+
+  # Second, create a virtual device, needed because DRIVE2 doen't start at offset 0
   if ! disk_create_loop vm_loop_device "${VM_STOR_DRIVE2}" "${VM_STOR_DRIVE2_START}" "${VM_STOR_SIZE}"; then
     logError "Failed to create loop device for VM storage"
     return 1
@@ -234,7 +355,7 @@ storage_create() {
     logInfo "Loop device created for VM storage: ${vm_loop_device}"
   fi
 
-  # Create the RAID1 array
+  # Third, create the RAID1 array itself
   if ! disk_create_raid1 "${VM_STOR_DRIVE}" "${VM_STOR_DRIVE1}" "${vm_loop_device}"; then
     logError "Failed to create RAID1 array for VM storage"
     return 1
@@ -242,15 +363,27 @@ storage_create() {
     logInfo "RAID1 array created for VM storage"
   fi
 
-  # Create the SR record for the VM storage
-  if ! xe_stor_create_lvm res "${VM_STOR_NAME}" "${VM_STOR_DRIVE}"; then
+  # Fourth, create the XCP-ng Storage Record (SR) on this new drive
+  if ! xe_stor_create_lvm res "${XCP_VM_SR_NAME}" "${VM_STOR_DRIVE}"; then
     logError "Failed to create SR record for VM storage"
     return 1
   else
     logInfo "SR record created for VM storage: ${res}"
   fi
 
-  # Create the ISO storage
+  #################
+  ## ISO Storage ##
+  #################
+
+  # First, wipe the first 34 sectors of the drive
+  if ! dd if=/dev/zero of="${ISO_STOR_DRIVE}" bs=512 count=34 seek="${ISO_STOR_START}"; then
+    logError "Failed to erase first 34 sectors of ${ISO_STOR_DRIVE}"
+    return 1
+  else
+    logInfo "First 34 sectors erased on ${ISO_STOR_DRIVE}"
+  fi
+
+  # Second, create a virtual device, needed because DRIVE doen't start at offset 0
   if ! disk_create_loop iso_loop_device "${ISO_STOR_DRIVE}" "${ISO_STOR_START}" "${ISO_STOR_SIZE}"; then
     logError "Failed to create loop device for ISO storage"
     return 1
@@ -258,7 +391,7 @@ storage_create() {
     logInfo "Loop device created for ISO storage: ${iso_loop_device}"
   fi
 
-  # Format the ISO storage
+  # Third, format the ISO storage
   if ! disk_format "${iso_loop_device}" "ext4"; then
     logError "Failed to format ISO storage"
     return 1
@@ -266,7 +399,7 @@ storage_create() {
     logInfo "ISO storage formatted"
   fi
 
-  # Mount the ISO storage
+  # Fourth, mount the ISO storage
   if ! mkdir -p "${ISO_STOR_PATH}"; then
     logError "Failed to create ISO storage mount point"
     return 1
@@ -277,13 +410,17 @@ storage_create() {
     logInfo "ISO storage mounted: ${ISO_STOR_PATH}"
   fi
 
-  # Create the SR record for the ISO storage
-  if ! xe_stor_create_iso res "${ISO_STOR_NAME}" "${ISO_STOR_PATH}"; then
+  # Fifth, create the XCP-ng Storage Record (SR) on it
+  if ! xe_stor_create_iso res "${XCP_ISO_SR_NAME}" "${ISO_STOR_PATH}"; then
     logError "Failed to create SR record for ISO storage"
     return 1
   else
     logInfo "SR record created for ISO storage: ${res}"
   fi
+
+  ##############
+  ## Epîlogue ##
+  ##############
 
   # Save the configuration as created
   if ! config_save "${STOR_FILE}" STOR_STATE created; then
@@ -295,7 +432,7 @@ storage_create() {
 
   # If we reached here, everything was created successfully. Now unload it all
   res=0
-  if ! xe_stor_unplug "${VM_STOR_NAME}"; then
+  if ! xe_stor_unplug "${XCP_VM_SR_NAME}"; then
     logError "Failed to unplug VM storage"
     res=1
   elif ! disk_remove_raid "${VM_STOR_DRIVE}"; then
@@ -308,7 +445,7 @@ storage_create() {
     logInfo "VM Storage disconnected"
   fi
 
-  if ! xe_stor_unplug "${ISO_STOR_NAME}"; then
+  if ! xe_stor_unplug "${XCP_ISO_SR_NAME}"; then
     logError "Failed to unplug ISO storage"
     res=1
   elif ! umount "${ISO_STOR_PATH}"; then
@@ -376,6 +513,7 @@ storage_design() {
     fi
   done
 
+  local __avail __availGiB
   logInfo <<EOF
 Summary for all drives:
 $(for drive in "${local_drives[@]}"; do
@@ -398,6 +536,13 @@ EOF
   local second_biggest_size=0
   for drive in "${local_drives[@]}"; do
     __avail=$((${drive_end_sectors[${drive}]} - ${drive_start_sectors[${drive}]}))
+    __availGiB=$((__avail * 512 / 1024 / 1024 / 1024))
+    # Ignore drives that are over 1TiB.
+    # This is probably intended for NAS/SAN and not local storage.
+    if ((__availGiB > 1024)); then
+      logWarn "Ignoring drive ${drive} with ${__avail} sectors (${__availGiB} GiB)"
+      continue
+    fi
     if ((__avail > biggest_size)); then
       second_biggest_size=${biggest_size}
       second_biggest_drive=${biggest_drive}
@@ -450,9 +595,6 @@ EOF
   elif ! config_save "${STOR_FILE}" VM_STOR_DRIVE "md10"; then
     logError "Failed to save VM_STOR_DRIVE"
     return 1
-  elif ! config_save "${STOR_FILE}" VM_STOR_NAME "qnap_vm"; then
-    logError "Failed to save VM_STOR_NAME"
-    return 1
   else
     logInfo "Storage configuration saved for VM storage"
   fi
@@ -496,9 +638,6 @@ EOF
   elif ! config_save "${STOR_FILE}" ISO_STOR_PATH "/mnt/iso_store"; then
     logError "Failed to save ISO_STOR_PATH"
     return 1
-  elif ! config_save "${STOR_FILE}" ISO_STOR_NAME "qnap_iso"; then
-    logError "Failed to save ISO_STOR_NAME"
-    return 1
   else
     logInfo "Storage configuration saved for ISO storage"
   fi
@@ -514,12 +653,10 @@ EOF
   return 0
 }
 
-# External variables loaded
-CONFIG_DIR=""
-VM_STOR_DRIVE=""
-ISO_STOR_PATH=""
-ISO_STOR_NAME=""
-VM_STOR_NAME=""
+# Variables loaded externally
+if [[ -z "${CONFIG_DIR}" ]]; then CONFIG_DIR=""; fi
+if [[ -z "${VM_STOR_DRIVE}" ]]; then VM_STOR_DRIVE=""; fi
+if [[ -z "${ISO_STOR_PATH}" ]]; then ISO_STOR_PATH=""; fi
 
 ###########################
 ###### Startup logic ######
@@ -558,12 +695,16 @@ if ! source "${PREFIX}/lib/config.sh"; then
   logFatal "Failed to import config.sh"
 fi
 # shellcheck disable=SC1091
+if ! source "${SR_ROOT}/src/storage/nas.sh"; then
+  logFatal "Failed to import nas.sh"
+fi
+# shellcheck disable=SC1091
 if ! source "${SETUP_REPO_DIR}/src/disk.sh"; then
-  logFatal "Failed to import config.sh"
+  logFatal "Failed to import disk.sh"
 fi
 # shellcheck disable=SC1091
 if ! source "${XE_REPO_DIR}/src/xe_storage.sh"; then
-  logFatal "Failed to import config.sh"
+  logFatal "Failed to import xe_storage.sh"
 fi
 
 if [[ -p /dev/stdin ]] && [[ -z ${BASH_SOURCE[0]} ]]; then

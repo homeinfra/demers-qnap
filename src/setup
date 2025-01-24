@@ -39,6 +39,12 @@ setup() {
 }
 
 setup_dependencies() {
+  # Make sure the OS is up to date
+  if ! yum -y update; then
+    logInfo "Failed to update"
+    return 1
+  fi
+
   # Make sure git is installed and configured
   if ! git_install; then
     logInfo "Failed to install git"
@@ -116,21 +122,6 @@ setup_host_hardware() {
     logError "Failed to setup UPS"
     return 1
   fi
-
-  # Hide PCI devices from dom0, as they will be passed to VMs
-  local res
-  passthrough_configure
-  res=$?
-  if [[ ${res} -ne 0 ]]; then
-    if [[ ${res} -eq 2 ]]; then
-      logInfo "Reboot required"
-      REBOOT_REQUIRED=1
-    else
-      logError "Failed to configure PCI passthrough"
-      return 1
-    fi
-  fi
-  logInfo "PCI passthrough configured"
 
   return 0
 }
@@ -267,6 +258,11 @@ validate_hardware() {
 
 check_system() {
   local name
+  if [[ -z "${QN_NAME}" ]]; then
+    logError "QN_NAME is not set"
+    return 1
+  fi
+
   if id_identify name; then
     if [[ "${name}" == "${QN_NAME}" ]]; then
       return 0
@@ -293,6 +289,12 @@ local_xcp_config() {
     return 1
   fi
 
+  # Setup hardware dependencies for NAS
+  # It must come before startup script is called for the first time
+  if ! nas_storage_setup; then
+    return 1
+  fi
+
   # Configure the lifecycle daemon
   if ! deamon_configure; then
     logError "Failed to configure the lifecycle daemon"
@@ -304,7 +306,7 @@ local_xcp_config() {
     return 1
   fi
 
-  if ! netdata_configure "qnap@demers.jeremfg.com" "sol.demers.jeremfg.com@gmail.com"; then
+  if ! netdata_configure "${SENDER}" "${SYSADMIN}"; then
     logError "Failed to configure netdata"
     return 1
   fi
@@ -337,9 +339,8 @@ external_depends() {
 }
 
 # Variables loaded externally
-LEVEL_ALL=""
-NICS=""
-QN_NAME=""
+if [[ -z "${LEVEL_ALL}" ]]; then LEVEL_ALL=""; fi
+if [[ -z "${NICS}" ]]; then NICS=""; fi
 
 # Constants
 AGE_KEY="homeinfra_demers"
@@ -370,7 +371,9 @@ if [[ -z "${PREFIX}" ]]; then
 fi
 
 # Instalal external dependencies
-external_depends
+if ! external_depends; then
+  exit 1
+fi
 
 # Import dependencies
 SETUP_REPO_DIR="${DQ_ROOT}/external/setup"
@@ -438,6 +441,10 @@ fi
 # shellcheck disable=SC1094
 if ! source "${DQ_ROOT}/src/storage/storage.sh"; then
   logFatal "Failed to import storage.sh"
+fi
+# shellcheck disable=SC1094
+if ! source "${DQ_ROOT}/src/storage/nas.sh"; then
+  logFatal "Failed to import nas.sh"
 fi
 
 if [[ -p /dev/stdin ]] && [[ -z ${BASH_SOURCE[0]} ]]; then

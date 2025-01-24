@@ -3,8 +3,8 @@
 #
 # This script is used to configure the qnap sensors
 
-if [[ -z ${GUARD_QN_SENSORS_SH} ]]; then
-  GUARD_QN_SENSORS_SH=1
+if [[ -z ${GUARD_SENSORS_SH} ]]; then
+  GUARD_SENSORS_SH=1
 else
   return 0
 fi
@@ -27,14 +27,14 @@ sensor_detect() {
     logWarn "Cannot find lm_sensors configuration file. Assuming detection was not performed"
   else
     # Check if file contains our expeced sensor modules
-    if [[ -z "${QN_SENSORS}" ]]; then
-      logError "QN_SENSORS is not set"
+    if [[ -z "${HW_SENSORS}" ]]; then
+      logError "HW_SENSORS is not set"
       return 1
     fi
 
     local not_found=0
     local module
-    for module in ${QN_SENSORS}; do
+    for module in ${HW_SENSORS}; do
       if ! grep -q "${module}" "/etc/sysconfig/lm_sensors"; then
         not_found=1
         logWarn "Sensor module ${module} not found. Assuming sensor detection was not performed."

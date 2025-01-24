@@ -3,8 +3,8 @@
 #
 # Script to indeitify the hardware we are running on
 
-if [[ -z ${GUARD_QN_ID_SH} ]]; then
-  GUARD_QN_ID_SH=1
+if [[ -z ${GUARD_QN_IDENTITY_SH} ]]; then
+  GUARD_QN_IDENTITY_SH=1
 else
   return 0
 fi
@@ -157,8 +157,8 @@ id_identify() {
       #         Characteristics:
       #                 64-bit capable
 
-      eval "${_name}='QNAP TVS-663'"
-      logInfo "Recognized the motherboard used in a QNAP TVS-663: ${product_name}"
+      eval "${_name}='QNAP TVS-x63'"
+      logInfo "Recognized the motherboard used in a QNAP TVS-x63: ${product_name}"
       res=0
       ;;
     *)

@@ -24,7 +24,7 @@ email_install() {
   fi
 
   # Configure XCP-ng
-  if ! xe_configure_email "${client_config_src}"; then
+  if ! xe_email_configure "${client_config_src}"; then
     logError "Failed to configure email"
     return 1
   else
@@ -35,8 +35,8 @@ email_install() {
 }
 
 # Variables loaded externally
-BIN_DIR=""
-CONFIG_DIR=""
+if [[ -z "${BIN_DIR}" ]]; then BIN_DIR=""; fi
+if [[ -z "${CONFIG_DIR}" ]]; then CONFIG_DIR=""; fi
 
 ###########################
 ###### Startup logic ######

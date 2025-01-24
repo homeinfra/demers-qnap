@@ -92,6 +92,9 @@ deamon_configure() {
   if [[ -z "${CONFIG_DIR}" ]]; then
     logError "CONFIG_DIR is not set"
     return 1
+  elif [[ -z "${PLUGIN_DIR}" ]]; then
+    logError "PLUGIN_DIR is not set"
+    return 1
   fi
 
   local startup_script
@@ -173,6 +176,18 @@ deamon_configure() {
     fi
   else
     logInfo "Service already started"
+  fi
+
+  # Prepare the plugin directory
+  if [[ -d "${PLUGIN_DIR}" ]]; then
+    logInfo "Plugin directory already exists"
+  else
+    if ! mkdir -p "${PLUGIN_DIR}"; then
+      logError "Failed to create the plugin directory"
+      return 1
+    else
+      logInfo "Plugin directory created"
+    fi
   fi
 }
 
