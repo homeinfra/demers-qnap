@@ -61,6 +61,9 @@ storage_mount() {
   elif [[ -z "${XCP_ISO_SR_NAME}" ]]; then
     logError "Missing XCP_ISO_SR_NAME"
     return 1
+  elif [[ -z "${VM_STOR_DRIVE}" ]]; then
+    logError "Missing VM_STOR_DRIVE"
+    return 1
   fi
 
   # Validate current state
@@ -182,6 +185,24 @@ storage_mount() {
     logInfo "ISO storage already mounted"
   fi
 
+  # Symlink the XCP-ng tools ISO to the ISO storage
+  local filename
+  filename=$(ls -1 "${XEN_GUEST_TOOLS_ISO_DIR}")
+  if [[ -z ${filename} ]]; then
+    logError "Failed to find XCP-ng tools ISO"
+    return 1
+  elif [[ ! -f "${XEN_GUEST_TOOLS_ISO_DIR}/${filename}" ]]; then
+    logError "XCP-ng tools ISO doesn't exist"
+    return 1
+  elif [[ -L "${ISO_STOR_PATH}/${XEN_GUEST_TOOLS_NAME}" ]]; then
+    logInfo "XCP-ng tools ISO already symlinked"
+  elif ! ln -s "${XEN_GUEST_TOOLS_ISO_DIR}/${filename}" "${ISO_STOR_PATH}/${XEN_GUEST_TOOLS_NAME}"; then
+    logError "Failed to symlink XCP-ng tools ISO"
+    return 1
+  else
+    logInfo "XCP-ng tools ISO symlinked"
+  fi
+
   # Plug the storage
   if ! xe_stor_plug "${XCP_VM_SR_NAME}"; then
     logError "Failed to plug VM storage"
@@ -243,6 +264,16 @@ storage_unmount() {
   if ! xe_stor_unplug "${XCP_ISO_SR_NAME}"; then
     logError "Failed to unplug ISO storage"
     __return_code=1
+  fi
+  if [[ -L "${ISO_STOR_PATH}/${XEN_GUEST_TOOLS_NAME}" ]]; then
+    if ! rm "${ISO_STOR_PATH}/${XEN_GUEST_TOOLS_NAME}"; then
+      logError "Failed to remove symlink for XCP-ng tools ISO"
+      __return_code=1
+    else
+      logInfo "XCP-ng tools ISO symlink removed"
+    fi
+  else
+    logInfo "XCP-ng tools ISO symlink already removed"
   fi
   # shellcheck disable=SC2312 # Grep will fail anyway it doesn't find the string
   if mount | grep -q "${ISO_STOR_PATH}"; then
@@ -653,10 +684,9 @@ EOF
   return 0
 }
 
-# Variables loaded externally
-if [[ -z "${CONFIG_DIR}" ]]; then CONFIG_DIR=""; fi
-if [[ -z "${VM_STOR_DRIVE}" ]]; then VM_STOR_DRIVE=""; fi
-if [[ -z "${ISO_STOR_PATH}" ]]; then ISO_STOR_PATH=""; fi
+# Constants
+XEN_GUEST_TOOLS_ISO_DIR="/opt/xensource/packages/iso"
+XEN_GUEST_TOOLS_NAME="guest-tools.iso"
 
 ###########################
 ###### Startup logic ######
