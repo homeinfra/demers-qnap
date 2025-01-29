@@ -112,6 +112,7 @@ nas_identify_disks() {
   local nb_sectors size_sectors phys_sectors size size_gib
   candidate_disks=()
   for disk in "${disk_list[@]}"; do
+    logTrace "Checking disk ${disk}"
     if [[ "${disk}" == "sd"* ]]; then
       : # Ok
     elif [[ "${disk}" == "nvme"* ]]; then
