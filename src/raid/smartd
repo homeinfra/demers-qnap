@@ -67,7 +67,7 @@ if ! source "${cfg_email}"; then
 fi
 
 SEND_XCP="true"
-if ! res host-list name-label=\$(hostname) --minimal; then
+if ! xe exec res host-list name-label=\$(hostname) --minimal; then
   logError "Failed to get host"
   SEND_XCP=""
 elif [[ -z "\${res}" ]]; then
@@ -88,10 +88,19 @@ LVL_DEBUG=4
 LVL_TRACE=5
 
 # Prepare event message
-DEV_MSG="\$(/usr/sbin/smartctl -a "\${SMARTD_DEVICE}")"
-if [[ \$? -ne 0 ]]; then
-  logWarn "Failed to get SMART status for \${SMARTD_DEVICE}"
-  DEV_MSG="Failed to get SMART status for \${SMARTD_DEVICE}"
+if [[ "\${SMARTD_DEVICE}" == "/dev/sd"* ]]; then
+  DEV_MSG="\$(/usr/sbin/smartctl -a -d scsi "\${SMARTD_DEVICE}")"
+  res=\$?
+elif [[ "\${SMARTD_DEVICE}" == "/dev/nvme"* ]]; then
+  DEV_MSG="\$(/usr/sbin/smartctl -a -d nvme "\${SMARTD_DEVICE}")"
+  res=\$?
+else
+  DEV_MSG="\$(/usr/sbin/smartctl -a "\${SMARTD_DEVICE}")"
+  res=\$?
+fi
+if [[ \${res} -ne 0 ]]; then
+  logWarn "Failed to get SMART status for \${SMARTD_DEVICE}\${IFS}\${DEV_MSG}"
+  DEV_MSG="Failed to get SMART status for \${SMARTD_DEVICE}\${IFS}\${DEV_MSG}"
 fi
 
 # Check if this drive is part of a RAID array
@@ -266,6 +275,9 @@ build_config_file() {
     if [[ "${disk}" == "sd"* ]]; then
       candidates+=("${disk}")
     elif [[ "${disk}" == "nvme"* ]]; then
+      # Strip the "nx" suffix
+      # shellcheck disable=SC2001
+      disk=$(echo "${disk}" | sed 's|n[0-9]$||')
       candidates+=("${disk}")
     else
       logWarn "Unknown disk: ${disk}"
@@ -367,6 +379,8 @@ sd_test_alerts() {
   if ! sd_restart; then
     logWarn "Failed to restart smartd for conducting the test"
   else
+    logInfo "smartd restarted, let the test run for 30 seconds..."
+    sleep 60
     logInfo "Test successful. Restoring smartd configuration..."
   fi
 
