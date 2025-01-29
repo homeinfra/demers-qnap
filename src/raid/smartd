@@ -67,7 +67,7 @@ if ! source "${cfg_email}"; then
 fi
 
 SEND_XCP="true"
-if ! xe exec res host-list name-label=\$(hostname) --minimal; then
+if ! xe_exec res host-list name-label=\$(hostname) --minimal; then
   logError "Failed to get host"
   SEND_XCP=""
 elif [[ -z "\${res}" ]]; then
@@ -89,8 +89,12 @@ LVL_TRACE=5
 
 # Prepare event message
 if [[ "\${SMARTD_DEVICE}" == "/dev/sd"* ]]; then
-  DEV_MSG="\$(/usr/sbin/smartctl -a -d scsi "\${SMARTD_DEVICE}")"
+  DEV_MSG="\$(/usr/sbin/smartctl -a "\${SMARTD_DEVICE}")"
   res=\$?
+  if [[ \${res} -ne 0 ]]; then
+    DEV_MSG="\$(/usr/sbin/smartctl -a -d scsi "\${SMARTD_DEVICE}")"
+    res=\$?
+  fi
 elif [[ "\${SMARTD_DEVICE}" == "/dev/nvme"* ]]; then
   DEV_MSG="\$(/usr/sbin/smartctl -a -d nvme "\${SMARTD_DEVICE}")"
   res=\$?
