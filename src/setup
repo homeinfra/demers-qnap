@@ -368,7 +368,7 @@ fi
 
 # Configure logger
 export LOG_CONSOLE=1
-logSetLevel "${LEVEL_ALL}"
+export LOG_LEVEL=0
 
 # shellcheck disable=SC1091
 if ! source "${PREFIX}/lib/slf4.sh"; then
