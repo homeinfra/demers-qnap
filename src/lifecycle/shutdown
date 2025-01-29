@@ -69,6 +69,7 @@ shutdown_plugin() {
   fi
 
   plugins=$(ls -1 "${PLUGIN_DIR}/stop_"*)
+  plugins=$(echo "${plugins}" | sort)
   readarray -t plugins <<<"${plugins[@]}"
 
   for plugin in "${plugins[@]}"; do
@@ -177,7 +178,7 @@ sh_parse() {
 
   if [[ -n "${cmd}" ]]; then
     logInfo "Mark system ${cmd} for shutdown"
-    echo "${SHUTDOWN_ALL}" >"${SHUTDOWN_CMD_FILE}"
+    echo "${cmd}" >"${SHUTDOWN_CMD_FILE}"
     if [[ "${cmd}" == "${SHUTDOWN_ALL}" ]]; then
       if [[ "${opt}" == "-e" ]]; then
         logInfo "Trigger the shutdown"

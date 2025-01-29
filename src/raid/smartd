@@ -13,7 +13,10 @@
 # Supress messages when skipped
 # Run short test daily at 22h00
 # Run long test monthly on the 1st at 00h00
-SD_SMARTD_CONF="DEVICESCAN -a -n sleep,4,q -s (S/../.././22|L/../01/./00)"
+SD_SMARTD_CONF="-a -n sleep,4,q -s (S/../.././22|L/../01/./00)"
+
+# TODO: I'm missing 3 drives not being monitored: sdg, nvme0n1 nvmm1n1
+# We can accomplish this by comparing the output of `smartctl --scan` with the output of `lsblk -o NAME,TYPE`
 
 sd_configure() {
   if [[ -z "${BIN_DIR}" ]]; then
@@ -190,8 +193,13 @@ EOF
 
   # Configure smartd
   local cfg_file="/etc/smartmontools/smartd.conf"
-  local cfg_file_backp="${cfg_file}.bak"
+  local cfg_content
+  if ! build_config_file cfg_content; then
+    logError "Failed to build smartd configuration"
+    return 1
+  fi
 
+  local cfg_file_backp="${cfg_file}.bak"
   if [[ -f "${cfg_file}" ]]; then
     if [[ ! -f "${cfg_file_backp}" ]]; then
       cp "${cfg_file}" "${cfg_file_backp}"
@@ -200,20 +208,124 @@ EOF
     logWarn "smartd configuration was not found"
   fi
 
-  local cfg_line="${SD_SMARTD_CONF} -m ${SYSADMIN} -M exec ${smart_file}"
-  if ! grep -q "^${cfg_line}\$" "${cfg_file}"; then
-    if grep -q "^DEVICESCAN.*" "${cfg_file}"; then
-      sed -i "s=^DEVICESCAN.*=${cfg_line}=" "${cfg_file}"
-      logInfo "Updated smartd configuration"
-    else
-      echo "${cfg_line}" >>"${cfg_file}"
-      logInfo "Appended smartd configuration"
-    fi
-    sd_restart
+  # Append -m and -M opttions in cfg_content to the line containing DEFAULT
+  if ! grep -q "^DEFAULT" <<<"${cfg_content}"; then
+    logError "Failed to find DEFAULT directive in smartd configuration"
   else
-    logInfo "smartd already configured"
+    # shellcheck disable=SC2001
+    cfg_content=$(sed "s/^DEFAULT.*/& -m ${SYSADMIN} -M exec ${smart_file}/" <<<"${cfg_content}")
   fi
-  return $?
+
+  # Compare the current configuration file with cfg_content
+  if [[ -f "${cfg_file}" ]]; then
+    if diff -q "${cfg_file}" <(echo "${cfg_content}"); then
+      logInfo "smartd configuration is already set"
+      return 0
+    else
+      logWarn "smartd configuration is different from the expected one"
+    fi
+  else
+    logWarn "smartd configuration was not found"
+  fi
+
+  # If we reach here, we must update the configuration file
+  if ! echo "${cfg_content}" >"${cfg_file}"; then
+    logError "Failed to write smartd configuration"
+    return 1
+  else
+    logInfo "Updated smartd configuration"
+    if ! sd_restart; then
+      logError "Failed to restart smartd"
+      return 1
+    fi
+  fi
+
+  return 0
+}
+
+# Build the content of the desired config file
+#
+# Parameters:
+#   $1[out]: The content of the file to be created
+# Returns:
+#   0: Success
+#   1: Failure
+build_config_file() {
+  local __result_file_content="${1}"
+  local disks candidates extras fileout
+
+  # Get all disks
+  if ! disk_list_drives disks; then
+    logError "Failed to list drives"
+    return 1
+  fi
+
+  # Filter for the candidates that interest us
+  candidates=()
+  for disk in "${disks[@]}"; do
+    if [[ "${disk}" == "sd"* ]]; then
+      candidates+=("${disk}")
+    elif [[ "${disk}" == "nvme"* ]]; then
+      candidates+=("${disk}")
+    else
+      logWarn "Unknown disk: ${disk}"
+    fi
+  done
+
+  logInfo "Detected the following disks on the system: ${candidates[*]}"
+
+  # See which disks are identified by smartd
+  if ! res=$(smartctl --scan); then
+    logError "Failed to get smartctl scan"
+    return 1
+  elif [[ -z "${res}" ]]; then
+    logError "No disks found by smartctl"
+    return 1
+  elif ! res=$(echo "${res}" | awk '{print $1}'); then
+    logError "Failed to parse smartctl scan"
+    return 1
+  elif ! readarray -t disks <<<"${res}"; then
+    logError "Failed to parse smartctl scan"
+    return 1
+  fi
+
+  # Filter out the disks that are not monitored by smartd
+  for disk in "${candidates[@]}"; do
+    if [[ ! " ${disks[*]} " =~ [[:space:]]${disk}[[:space:]] ]]; then
+      logWarn "Disk ${disk} is not monitored by smartd"
+      extras+=("${disk}")
+    fi
+  done
+
+  # Check we have the expected 3 disks
+  if [[ ${#extras[@]} -ne 3 ]]; then
+    logWarn "Expected 3 disks in extras, but found ${#extras[@]}: ${extras[*]}"
+  fi
+
+  # Build the content of the file
+  fileout=$(
+    cat <<EOF
+# This file was automatically generated during setup
+# It lists the disks that are not monitored by smartd by default
+# as well as using the DEVICESCAN directive.
+DEFAULT ${SD_SMARTD_CONF}
+$(for line in "${extras[@]}"; do
+      # shellcheck disable=SC2312
+      if [[ "${line}" == "sd"* ]]; then
+        echo "/dev/${line} -d scsi"
+      elif [[ "${line}" == "nvme"* ]]; then
+        echo "/dev/${line} -d nvme"
+      else
+        echo "# Unknown disk: ${line}"
+      fi
+    done)
+DEVICESCAN
+EOF
+  )
+
+  # Return
+  eval "${__result_file_content}='${fileout}'"
+  return 0
 }
 
 sd_restart() {
@@ -234,12 +346,12 @@ sd_test_alerts() {
   local cfg_line_orig
 
   if [[ -f "${cfg_file}" ]]; then
-    if ! cfg_line_orig=$(grep -E "^DEVICESCAN" "${cfg_file}"); then
+    if ! cfg_line_orig=$(grep -E "^DEFAULT" "${cfg_file}"); then
       logError "Failed to read smartd configuration"
       return 1
     fi
     cfg_line="${cfg_line_orig} -M test"
-    if ! sed -i "s=^DEVICESCAN.*=${cfg_line}=" "${cfg_file}"; then
+    if ! sed -i "s=^DEFAULT.*=${cfg_line}=" "${cfg_file}"; then
       logError "Failed to to configure samrtd for testing"
       return 1
     fi
@@ -258,7 +370,7 @@ sd_test_alerts() {
 
   # Restore original configuration
   local success
-  sed -i "s=^DEVICESCAN.*=${cfg_line_orig}=" "${cfg_file}"
+  sed -i "s=^DEFAULT.*=${cfg_line_orig}=" "${cfg_file}"
   success=$?
   # shellcheck disable=SC2250
   if [[ $success -ne 0 ]]; then
@@ -305,10 +417,12 @@ fi
 if ! source "${PREFIX}/lib/slf4.sh"; then
   echo "Failed to import slf4.sh"
   exit 1
-fi
-# shellcheck disable=SC1091
-if ! source "${PREFIX}/lib/config.sh"; then
+elif ! source "${PREFIX}/lib/config.sh"; then
   logFatal "Failed to import config.sh"
+elif [[ -z "${SETUP_DIR}" ]]; then
+  logFatal "SETUP_DIR is not set"
+elif ! source "${SETUP_DIR}/src/disk.sh"; then
+  logFatal "Failed to import os.sh"
 fi
 
 if [[ -p /dev/stdin ]] && [[ -z ${BASH_SOURCE[0]} ]]; then

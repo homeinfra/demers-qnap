@@ -40,6 +40,7 @@ startup_plugin() {
   fi
 
   plugins=$(ls -1 "${PLUGIN_DIR}/start_"*)
+  plugins=$(echo "${plugins}" | sort)
   readarray -t plugins <<<"${plugins[@]}"
 
   for plugin in "${plugins[@]}"; do

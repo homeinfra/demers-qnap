@@ -382,68 +382,41 @@ XE_LIB_DIR="${DQ_ROOT}/external/xapi.sh"
 if ! source "${PREFIX}/lib/slf4.sh"; then
   echo "Failed to import slf4.sh"
   exit 1
-fi
-# shellcheck disable=SC1091
-if ! source "${PREFIX}/lib/config.sh"; then
+elif ! source "${PREFIX}/lib/config.sh"; then
   logFatal "Failed to import config.sh"
-fi
-# shellcheck disable=SC1091
-if ! source "${SETUP_REPO_DIR}/src/git.sh"; then
+elif ! source "${SETUP_REPO_DIR}/src/git.sh"; then
   logFatal "Failed to import git.sh"
-fi
-# shellcheck disable=SC1091
-if ! source "${SETUP_REPO_DIR}/src/sops.sh"; then
+elif ! source "${SETUP_REPO_DIR}/src/sops.sh"; then
   logFatal "Failed to import sops.sh"
-fi
-# shellcheck disable=SC1091
-if ! source "${SETUP_REPO_DIR}/src/age.sh"; then
+elif ! source "${SETUP_REPO_DIR}/src/age.sh"; then
   logFatal "Failed to import age.sh"
-fi
-# shellcheck disable=SC1091
-if ! source "${SETUP_REPO_DIR}/src/nut.sh"; then
+elif ! source "${SETUP_REPO_DIR}/src/nut.sh"; then
   logFatal "Failed to import nut.sh"
-fi
-# shellcheck disable=SC1091
-if ! source "${SETUP_REPO_DIR}/src/netdata"; then
+elif ! source "${SETUP_REPO_DIR}/src/netdata"; then
   logFatal "Failed to import netdata"
-fi
-# shellcheck disable=SC1091
-if ! source "${XE_LIB_DIR}/src/xe_network.sh"; then
+elif ! source "${XE_LIB_DIR}/src/xe_network.sh"; then
   logFatal "Failed to import xe_network.sh"
-fi
-if ! source "${DQ_ROOT}/src/hal/identity"; then
+elif ! source "${SETUP_REPO_DIR}/src/identity"; then
   logFatal "Failed to import identity"
-fi
-if ! source "${DQ_ROOT}/src/aq113c/aq113c.sh"; then
+elif ! source "${DQ_ROOT}/src/aq113c/aq113c.sh"; then
   logFatal "Failed to import aq113c.sh"
-fi
-if ! source "${DQ_ROOT}/src/hal/sensors.sh"; then
+elif ! source "${DQ_ROOT}/src/hal/sensors.sh"; then
   logFatal "Failed to import sensors.sh"
-fi
-if ! source "${DQ_ROOT}/src/hal/qnap_hal"; then
+elif ! source "${DQ_ROOT}/src/hal/qnap_hal"; then
   logFatal "Failed to import qnap_hal"
-fi
-if ! source "${DQ_ROOT}/src/email/email.sh"; then
+elif ! source "${DQ_ROOT}/src/email/email.sh"; then
   logFatal "Failed to import email.sh"
-fi
-if ! source "${DQ_ROOT}/src/raid/mdadm"; then
+elif ! source "${DQ_ROOT}/src/raid/mdadm"; then
   logFatal "Failed to import mdadm"
-fi
-if ! source "${DQ_ROOT}/src/raid/smartd"; then
+elif ! source "${DQ_ROOT}/src/raid/smartd"; then
   logFatal "Failed to import smartd"
-fi
-if ! source "${DQ_ROOT}/src/lifecycle/daemon.sh"; then
+elif ! source "${DQ_ROOT}/src/lifecycle/daemon.sh"; then
   logFatal "Failed to import daemon.sh"
-fi
-if ! source "${DQ_ROOT}/src/iommu/passthrough.sh"; then
+elif ! source "${DQ_ROOT}/src/iommu/passthrough.sh"; then
   logFatal "Failed to import passthrough.sh"
-fi
-# shellcheck disable=SC1094
-if ! source "${DQ_ROOT}/src/storage/storage.sh"; then
+elif ! source "${DQ_ROOT}/src/storage/storage.sh"; then
   logFatal "Failed to import storage.sh"
-fi
-# shellcheck disable=SC1094
-if ! source "${DQ_ROOT}/src/storage/nas.sh"; then
+elif ! source "${DQ_ROOT}/src/storage/nas.sh"; then
   logFatal "Failed to import nas.sh"
 fi
 
