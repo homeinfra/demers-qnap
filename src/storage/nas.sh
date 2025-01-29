@@ -112,6 +112,15 @@ nas_identify_disks() {
   local nb_sectors size_sectors phys_sectors size size_gib
   candidate_disks=()
   for disk in "${disk_list[@]}"; do
+    if [[ "${disk}" == "sd"* ]]; then
+      : # Ok
+    elif [[ "${disk}" == "nvme"* ]]; then
+      : # Ok
+    else
+      logTrace "Skipping disk ${disk}"
+      continue
+    fi
+
     if ! disk_drive_size nb_sectors size_sectors phys_sectors "${disk}"; then
       logError "Failed to get size of ${disk}"
       return 1
