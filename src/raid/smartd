@@ -421,6 +421,8 @@ if ! source "${PREFIX}/lib/slf4.sh"; then
   exit 1
 elif ! source "${PREFIX}/lib/config.sh"; then
   logFatal "Failed to import config.sh"
+elif ! config_load "${SD_ROOT}/data/local.env"; then
+  logFatal "Failed to load local configuration"
 elif [[ -z "${SETUP_DIR}" ]]; then
   logFatal "SETUP_DIR is not set"
 elif ! source "${SETUP_DIR}/src/disk.sh"; then
