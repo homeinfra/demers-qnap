@@ -396,7 +396,7 @@ elif ! source "${SETUP_REPO_DIR}/src/netdata"; then
   logFatal "Failed to import netdata"
 elif ! source "${XE_LIB_DIR}/src/xe_network.sh"; then
   logFatal "Failed to import xe_network.sh"
-elif ! source "${SETUP_REPO_DIR}/src/identity"; then
+elif ! source "${SETUP_REPO_DIR}/src/identity.sh"; then
   logFatal "Failed to import identity"
 elif ! source "${DQ_ROOT}/src/aq113c/aq113c.sh"; then
   logFatal "Failed to import aq113c.sh"
