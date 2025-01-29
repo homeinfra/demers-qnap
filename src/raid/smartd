@@ -293,7 +293,7 @@ build_config_file() {
 
   # Filter out the disks that are not monitored by smartd
   for disk in "${candidates[@]}"; do
-    if [[ ! " ${disks[*]} " =~ [[:space:]]${disk}[[:space:]] ]]; then
+    if [[ ! " ${disks[*]} " =~ [[:space:]]/dev/${disk}[[:space:]] ]]; then
       logWarn "Disk ${disk} is not monitored by smartd"
       extras+=("${disk}")
     fi
