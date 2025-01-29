@@ -6,15 +6,6 @@
 # Currently tested on XCP-ng 8.3 (CentOS)
 
 setup() {
-  export LOG_CONSOLE=1
-  logSetLevel "${LEVEL_ALL}"
-
-  # Load install configuration
-  if ! config_load "${DQ_ROOT}/data/local.env"; then
-    logError "Failed to load install configuration"
-    return 1
-  fi
-
   if ! setup_dependencies; then
     logError "Failed to setup dependencies"
     return 1
@@ -375,28 +366,35 @@ if ! external_depends; then
   exit 1
 fi
 
-# Import dependencies
-SETUP_REPO_DIR="${DQ_ROOT}/external/setup"
-XE_LIB_DIR="${DQ_ROOT}/external/xapi.sh"
+# Configure logger
+export LOG_CONSOLE=1
+logSetLevel "${LEVEL_ALL}"
+
 # shellcheck disable=SC1091
 if ! source "${PREFIX}/lib/slf4.sh"; then
   echo "Failed to import slf4.sh"
   exit 1
 elif ! source "${PREFIX}/lib/config.sh"; then
   logFatal "Failed to import config.sh"
-elif ! source "${SETUP_REPO_DIR}/src/git.sh"; then
+elif ! config_load "${DQ_ROOT}/data/local.env"; then
+  logFatal "Failed to load local.env"
+elif [[ -z "${SETUP_DIR}" ]]; then
+  logFatal "SETUP_DIR is not set"
+elif [[ -z "${XAPI_DIR}" ]]; then
+  logFatal "XAPI_DIR is not set"
+elif ! source "${SETUP_DIR}/src/git.sh"; then
   logFatal "Failed to import git.sh"
-elif ! source "${SETUP_REPO_DIR}/src/sops.sh"; then
+elif ! source "${SETUP_DIR}/src/sops.sh"; then
   logFatal "Failed to import sops.sh"
-elif ! source "${SETUP_REPO_DIR}/src/age.sh"; then
+elif ! source "${SETUP_DIR}/src/age.sh"; then
   logFatal "Failed to import age.sh"
-elif ! source "${SETUP_REPO_DIR}/src/nut.sh"; then
+elif ! source "${SETUP_DIR}/src/nut.sh"; then
   logFatal "Failed to import nut.sh"
-elif ! source "${SETUP_REPO_DIR}/src/netdata"; then
+elif ! source "${SETUP_DIR}/src/netdata"; then
   logFatal "Failed to import netdata"
-elif ! source "${XE_LIB_DIR}/src/xe_network.sh"; then
+elif ! source "${XAPI_DIR}/src/xe_network.sh"; then
   logFatal "Failed to import xe_network.sh"
-elif ! source "${SETUP_REPO_DIR}/src/identity.sh"; then
+elif ! source "${SETUP_DIR}/src/identity.sh"; then
   logFatal "Failed to import identity"
 elif ! source "${DQ_ROOT}/src/aq113c/aq113c.sh"; then
   logFatal "Failed to import aq113c.sh"
