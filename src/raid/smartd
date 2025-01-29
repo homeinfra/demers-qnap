@@ -213,7 +213,7 @@ EOF
     logError "Failed to find DEFAULT directive in smartd configuration"
   else
     # shellcheck disable=SC2001
-    cfg_content=$(sed "s/^DEFAULT.*/& -m ${SYSADMIN} -M exec ${smart_file}/" <<<"${cfg_content}")
+    cfg_content=$(sed "s|^DEFAULT.*|& -m ${SYSADMIN} -M exec ${smart_file}|" <<<"${cfg_content}")
   fi
 
   # Compare the current configuration file with cfg_content
