@@ -173,7 +173,7 @@ storage_mount() {
   # Check if ISO storage is already mounted
   local res
   # shellcheck disable=SC2312 # Grep will fail anyway it doesn't find the string
-  if ! sh_exec "" mount | grep -q "${ISO_STOR_PATH}"; then
+  if ! mount | grep -q "${ISO_STOR_PATH}"; then
     logInfo "Mounting ISO storage"
     if ! sh_exec "" mount "/dev/${iso_loop_device}" "${ISO_STOR_PATH}"; then
       logError "Failed to mount ISO storage"
@@ -276,7 +276,7 @@ storage_unmount() {
     logInfo "XCP-ng tools ISO symlink already removed"
   fi
   # shellcheck disable=SC2312 # Grep will fail anyway it doesn't find the string
-  if sh_exec "" mount | grep -q "${ISO_STOR_PATH}"; then
+  if mount | grep -q "${ISO_STOR_PATH}"; then
     if ! sh_exec "" umount "${ISO_STOR_PATH}"; then
       logError "Failed to unmount ISO storage"
       __return_code=1
