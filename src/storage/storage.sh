@@ -173,9 +173,9 @@ storage_mount() {
   # Check if ISO storage is already mounted
   local res
   # shellcheck disable=SC2312 # Grep will fail anyway it doesn't find the string
-  if ! mount | grep -q "${ISO_STOR_PATH}"; then
+  if ! sh_exec "" mount | grep -q "${ISO_STOR_PATH}"; then
     logInfo "Mounting ISO storage"
-    if ! mount "/dev/${iso_loop_device}" "${ISO_STOR_PATH}"; then
+    if ! sh_exec "" mount "/dev/${iso_loop_device}" "${ISO_STOR_PATH}"; then
       logError "Failed to mount ISO storage"
       return 1
     else
@@ -187,7 +187,7 @@ storage_mount() {
 
   # Symlink the XCP-ng tools ISO to the ISO storage
   local filename
-  filename=$(ls -1 "${XEN_GUEST_TOOLS_ISO_DIR}")
+  sh_exec filename ls -1 "${XEN_GUEST_TOOLS_ISO_DIR}"
   if [[ -z ${filename} ]]; then
     logError "Failed to find XCP-ng tools ISO"
     return 1
@@ -276,8 +276,8 @@ storage_unmount() {
     logInfo "XCP-ng tools ISO symlink already removed"
   fi
   # shellcheck disable=SC2312 # Grep will fail anyway it doesn't find the string
-  if mount | grep -q "${ISO_STOR_PATH}"; then
-    if ! umount "${ISO_STOR_PATH}"; then
+  if sh_exec "" mount | grep -q "${ISO_STOR_PATH}"; then
+    if ! sh_exec "" umount "${ISO_STOR_PATH}"; then
       logError "Failed to unmount ISO storage"
       __return_code=1
     else
@@ -368,10 +368,10 @@ storage_create() {
   ## VM Storage ##
   ################
   # First, wipe the first 34 sectors of both drives
-  if ! dd if=/dev/zero of="${VM_STOR_DRIVE1}" bs=512 count=34 seek="${VM_STOR_DRIVE1_START}"; then
+  if ! sh_exec "" dd if=/dev/zero of="${VM_STOR_DRIVE1}" bs=512 count=34 seek="${VM_STOR_DRIVE1_START}"; then
     logError "Failed to erase first 34 sectors of ${VM_STOR_DRIVE1}"
     return 1
-  elif ! dd if=/dev/zero of="${VM_STOR_DRIVE2}" bs=512 count=34 seek="${VM_STOR_DRIVE2_START}"; then
+  elif ! sh_exec "" dd if=/dev/zero of="${VM_STOR_DRIVE2}" bs=512 count=34 seek="${VM_STOR_DRIVE2_START}"; then
     logError "Failed to erase first 34 sectors of ${VM_STOR_DRIVE2}"
     return 1
   else
@@ -407,7 +407,7 @@ storage_create() {
   #################
 
   # First, wipe the first 34 sectors of the drive
-  if ! dd if=/dev/zero of="${ISO_STOR_DRIVE}" bs=512 count=34 seek="${ISO_STOR_START}"; then
+  if ! sh_exec "" dd if=/dev/zero of="${ISO_STOR_DRIVE}" bs=512 count=34 seek="${ISO_STOR_START}"; then
     logError "Failed to erase first 34 sectors of ${ISO_STOR_DRIVE}"
     return 1
   else
@@ -431,10 +431,10 @@ storage_create() {
   fi
 
   # Fourth, mount the ISO storage
-  if ! mkdir -p "${ISO_STOR_PATH}"; then
+  if ! sh_exec "" mkdir -p "${ISO_STOR_PATH}"; then
     logError "Failed to create ISO storage mount point"
     return 1
-  elif ! mount "/dev/${iso_loop_device}" "${ISO_STOR_PATH}"; then
+  elif ! sh_exec "" mount "/dev/${iso_loop_device}" "${ISO_STOR_PATH}"; then
     logError "Failed to mount ISO storage"
     return 1
   else
@@ -479,7 +479,7 @@ storage_create() {
   if ! xe_stor_unplug "${XCP_ISO_SR_NAME}"; then
     logError "Failed to unplug ISO storage"
     res=1
-  elif ! umount "${ISO_STOR_PATH}"; then
+  elif ! sh_exec "" umount "${ISO_STOR_PATH}"; then
     logError "Failed to unmount ISO storage"
     res=1
   elif ! disk_remove_loop "${iso_loop_device}"; then

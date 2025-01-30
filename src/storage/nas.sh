@@ -366,7 +366,7 @@ nas_storage_update() {
   fi
 
   local -a nas_files
-  nas_files=$(ls -1 "${folder_nas}")
+  sh_exec nas_files ls -1 "${folder_nas}"
   readarray -t nas_files <<<"${nas_files[@]}"
   logTrace "Found NAS files: ${nas_files[*]}"
   local disk link cur_dev var_dev_name
@@ -375,7 +375,7 @@ nas_storage_update() {
     if [[ -n "${!var_dev_name}" ]]; then
       link="${folder_nas}/${!var_dev_name}"
       if [[ -L "${link}" ]]; then
-        cur_dev=$(readlink -f "${link}")
+        sh_exec cur_dev readlink -f "${link}"
         if [[ "${cur_dev}" != "/dev/${!var_dev_name}" ]]; then
           logWarn "Link to Disk ${disk} needs update"
           needs_update=1
