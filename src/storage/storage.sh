@@ -80,6 +80,19 @@ storage_mount() {
     ;;
   esac
 
+  # Find drive names from serial numbers
+  local vm_stor_device1 vm_stor_device2 iso_stor_device
+  if ! disk_find_device vm_stor_device1 "${VM_STOR_DRIVE1}"; then
+    logError "Failed to find device1 for VM storage: ${vm_stor_device1}"
+    return 1
+  elif ! disk_find_device vm_stor_device2 "${VM_STOR_DRIVE2}"; then
+    logError "Failed to find device2 for VM storage: ${vm_stor_device2}"
+    return 1
+  elif ! disk_find_device iso_stor_device "${ISO_STOR_DRIVE}"; then
+    logError "Failed to find device for ISO storage: ${iso_stor_device}"
+    return 1
+  fi
+
   # Validat that the configuration makes sense
 
   # Only support the case where DISK2 isn't at the beggining of the drive. We need to mount a loop device for it
@@ -105,7 +118,7 @@ storage_mount() {
     if ! disk_loop_details back_file offset size "${loop_device}"; then
       logError "Failed to get details for loop device: ${loop_device}"
       return 1
-    elif [[ ${back_file} == "${VM_STOR_DRIVE2}" ]] && [[ ${offset} -eq ${VM_STOR_DRIVE2_START} ]] && [[ ${size} -eq ${VM_STOR_SIZE} ]]; then
+    elif [[ ${back_file} == "${vm_stor_device2}" ]] && [[ ${offset} -eq ${VM_STOR_DRIVE2_START} ]] && [[ ${size} -eq ${VM_STOR_SIZE} ]]; then
       vm_loop_device=${loop_device}
       logInfo "Found existing loop device for VM storage: ${vm_loop_device}"
       if [[ "${loop_device}" != "${VM_STOR_LOOP2}" ]]; then
@@ -117,7 +130,7 @@ storage_mount() {
         VM_STOR_LOOP2=${vm_loop_device}
       fi
       continue
-    elif [[ ${back_file} == "${ISO_STOR_DRIVE}" ]] && [[ ${offset} -eq ${ISO_STOR_START} ]] && [[ ${size} -eq ${ISO_STOR_SIZE} ]]; then
+    elif [[ ${back_file} == "${iso_stor_device}" ]] && [[ ${offset} -eq ${ISO_STOR_START} ]] && [[ ${size} -eq ${ISO_STOR_SIZE} ]]; then
       iso_loop_device=${loop_device}
       logInfo "Found existing loop device for ISO storage: ${iso_loop_device}"
       if [[ "${loop_device}" != "${ISO_STOR_LOOP}" ]]; then
@@ -137,7 +150,7 @@ storage_mount() {
   # First: VM Storage
   if [[ -z ${vm_loop_device} ]]; then
     logInfo "Creating loop device for VM storage"
-    if ! disk_create_loop vm_loop_device "${VM_STOR_DRIVE2}" "${VM_STOR_DRIVE2_START}" "${VM_STOR_SIZE}"; then
+    if ! disk_create_loop vm_loop_device "${vm_stor_device2}" "${VM_STOR_DRIVE2_START}" "${VM_STOR_SIZE}"; then
       logError "Failed to create loop device for VM storage"
       return 1
     elif ! config_save "${STOR_FILE}" VM_STOR_LOOP2 "${vm_loop_device}"; then
@@ -151,7 +164,7 @@ storage_mount() {
   # Second: ISO Storage
   if [[ -z ${iso_loop_device} ]]; then
     logInfo "Creating loop device for ISO storage"
-    if ! disk_create_loop iso_loop_device "${ISO_STOR_DRIVE}" "${ISO_STOR_START}" "${ISO_STOR_SIZE}"; then
+    if ! disk_create_loop iso_loop_device "${iso_stor_device}" "${ISO_STOR_START}" "${ISO_STOR_SIZE}"; then
       logError "Failed to create loop device for ISO storage"
       return 1
     elif ! config_save "${STOR_FILE}" ISO_STOR_LOOP "${iso_loop_device}"; then
@@ -163,7 +176,7 @@ storage_mount() {
   fi
 
   # Assemble the RAID1 array for the VM storage
-  if ! disk_assemble_radi1 "${VM_STOR_DRIVE}" "${VM_STOR_DRIVE1}" "${vm_loop_device}"; then
+  if ! disk_assemble_radi1 "${VM_STOR_DRIVE}" "${vm_stor_device1}" "${vm_loop_device}"; then
     logError "Failed to assemble RAID 1 array for VM storage"
     return 1
   else
@@ -360,6 +373,19 @@ storage_create() {
     return 1
   fi
 
+  # Get the actual devices from serial numbers
+  local vm_stor_device1 vm_stor_device2 iso_stor_device
+  if ! disk_find_device vm_stor_device1 "${VM_STOR_DRIVE1}"; then
+    logError "Failed to find device1 for VM storage: ${vm_stor_device1}"
+    return 1
+  elif ! disk_find_device vm_stor_device2 "${VM_STOR_DRIVE2}"; then
+    logError "Failed to find device2 for VM storage: ${vm_stor_device2}"
+    return 1
+  elif ! disk_find_device iso_stor_device "${ISO_STOR_DRIVE}"; then
+    logError "Failed to find device for ISO storage: ${iso_stor_device}"
+    return 1
+  fi
+
   local vm_loop_device
   local iso_loop_device
   local res=0
@@ -368,18 +394,18 @@ storage_create() {
   ## VM Storage ##
   ################
   # First, wipe the first 34 sectors of both drives
-  if ! sh_exec "" dd if=/dev/zero of="${VM_STOR_DRIVE1}" bs=512 count=34 seek="${VM_STOR_DRIVE1_START}"; then
-    logError "Failed to erase first 34 sectors of ${VM_STOR_DRIVE1}"
+  if ! sh_exec "" dd if=/dev/zero of="${vm_stor_device1}" bs=512 count=34 seek="${VM_STOR_DRIVE1_START}"; then
+    logError "Failed to erase first 34 sectors of ${vm_stor_device1}"
     return 1
-  elif ! sh_exec "" dd if=/dev/zero of="${VM_STOR_DRIVE2}" bs=512 count=34 seek="${VM_STOR_DRIVE2_START}"; then
-    logError "Failed to erase first 34 sectors of ${VM_STOR_DRIVE2}"
+  elif ! sh_exec "" dd if=/dev/zero of="${vm_stor_device2}" bs=512 count=34 seek="${VM_STOR_DRIVE2_START}"; then
+    logError "Failed to erase first 34 sectors of ${vm_stor_device2}"
     return 1
   else
     logInfo "First 34 sectors erased on both drives"
   fi
 
   # Second, create a virtual device, needed because DRIVE2 doen't start at offset 0
-  if ! disk_create_loop vm_loop_device "${VM_STOR_DRIVE2}" "${VM_STOR_DRIVE2_START}" "${VM_STOR_SIZE}"; then
+  if ! disk_create_loop vm_loop_device "${vm_stor_device2}" "${VM_STOR_DRIVE2_START}" "${VM_STOR_SIZE}"; then
     logError "Failed to create loop device for VM storage"
     return 1
   else
@@ -387,7 +413,7 @@ storage_create() {
   fi
 
   # Third, create the RAID1 array itself
-  if ! disk_create_raid1 "${VM_STOR_DRIVE}" "${VM_STOR_DRIVE1}" "${vm_loop_device}"; then
+  if ! disk_create_raid1 "${VM_STOR_DRIVE}" "${vm_stor_device1}" "${vm_loop_device}"; then
     logError "Failed to create RAID1 array for VM storage"
     return 1
   else
@@ -407,15 +433,15 @@ storage_create() {
   #################
 
   # First, wipe the first 34 sectors of the drive
-  if ! sh_exec "" dd if=/dev/zero of="${ISO_STOR_DRIVE}" bs=512 count=34 seek="${ISO_STOR_START}"; then
-    logError "Failed to erase first 34 sectors of ${ISO_STOR_DRIVE}"
+  if ! sh_exec "" dd if=/dev/zero of="${iso_stor_device}" bs=512 count=34 seek="${ISO_STOR_START}"; then
+    logError "Failed to erase first 34 sectors of ${iso_stor_device}"
     return 1
   else
-    logInfo "First 34 sectors erased on ${ISO_STOR_DRIVE}"
+    logInfo "First 34 sectors erased on ${iso_stor_device}"
   fi
 
   # Second, create a virtual device, needed because DRIVE doen't start at offset 0
-  if ! disk_create_loop iso_loop_device "${ISO_STOR_DRIVE}" "${ISO_STOR_START}" "${ISO_STOR_SIZE}"; then
+  if ! disk_create_loop iso_loop_device "${iso_stor_device}" "${ISO_STOR_START}" "${ISO_STOR_SIZE}"; then
     logError "Failed to create loop device for ISO storage"
     return 1
   else
@@ -607,11 +633,20 @@ EOF
     return 1
   fi
 
+  local sn1 sn2
+  if ! disk_sn_get sn2 "${biggest_drive}"; then
+    logError "Failed to get serial number for ${biggest_drive}"
+    return 1
+  elif ! disk_sn_get sn1 "${second_biggest_drive}"; then
+    logError "Failed to get serial number for ${second_biggest_drive}"
+    return 1
+  fi
+
   # Save the configuration for the VM_STORAGE drive
-  if ! config_save "${STOR_FILE}" VM_STOR_DRIVE1 "${second_biggest_drive}"; then
+  if ! config_save "${STOR_FILE}" VM_STOR_DRIVE1 "${sn1}"; then
     logError "Failed to save VM_STOR_DRIVE1"
     return 1
-  elif ! config_save "${STOR_FILE}" VM_STOR_DRIVE2 "${biggest_drive}"; then
+  elif ! config_save "${STOR_FILE}" VM_STOR_DRIVE2 "${sn2}"; then
     logError "Failed to save VM_STOR_DRIVE2"
     return 1
   elif ! config_save "${STOR_FILE}" VM_STOR_DRIVE1_START "${drive_start_sectors[${second_biggest_drive}]}"; then
@@ -656,8 +691,13 @@ ISO storage configuration:
   Size: ${iso_store_size} sectors ($((iso_store_size * 512 / 1024 / 1024 / 1024)) GiB)
 EOF
 
+  if ! disk_sn_get sn2 "${biggest_drive}"; then
+    logError "Failed to get serial number for ${biggest_drive}"
+    return 1
+  fi
+
   # Save the configuration for the ISO storage drive
-  if ! config_save "${STOR_FILE}" ISO_STOR_DRIVE "${biggest_drive}"; then
+  if ! config_save "${STOR_FILE}" ISO_STOR_DRIVE "${sn2}"; then
     logError "Failed to save ISO_STOR_DRIVE"
     return 1
   elif ! config_save "${STOR_FILE}" ISO_STOR_START "${iso_store_start}"; then
