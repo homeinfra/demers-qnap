@@ -82,13 +82,13 @@ storage_mount() {
 
   # Find drive names from serial numbers
   local vm_stor_device1 vm_stor_device2 iso_stor_device
-  if ! disk_find_device vm_stor_device1 "${VM_STOR_DRIVE1}"; then
+  if ! disk_by_sn vm_stor_device1 "${VM_STOR_DRIVE1}"; then
     logError "Failed to find device1 for VM storage: ${vm_stor_device1}"
     return 1
-  elif ! disk_find_device vm_stor_device2 "${VM_STOR_DRIVE2}"; then
+  elif ! disk_by_sn vm_stor_device2 "${VM_STOR_DRIVE2}"; then
     logError "Failed to find device2 for VM storage: ${vm_stor_device2}"
     return 1
-  elif ! disk_find_device iso_stor_device "${ISO_STOR_DRIVE}"; then
+  elif ! disk_by_sn iso_stor_device "${ISO_STOR_DRIVE}"; then
     logError "Failed to find device for ISO storage: ${iso_stor_device}"
     return 1
   fi
@@ -375,13 +375,13 @@ storage_create() {
 
   # Get the actual devices from serial numbers
   local vm_stor_device1 vm_stor_device2 iso_stor_device
-  if ! disk_find_device vm_stor_device1 "${VM_STOR_DRIVE1}"; then
+  if ! disk_by_sn vm_stor_device1 "${VM_STOR_DRIVE1}"; then
     logError "Failed to find device1 for VM storage: ${vm_stor_device1}"
     return 1
-  elif ! disk_find_device vm_stor_device2 "${VM_STOR_DRIVE2}"; then
+  elif ! disk_by_sn vm_stor_device2 "${VM_STOR_DRIVE2}"; then
     logError "Failed to find device2 for VM storage: ${vm_stor_device2}"
     return 1
-  elif ! disk_find_device iso_stor_device "${ISO_STOR_DRIVE}"; then
+  elif ! disk_by_sn iso_stor_device "${ISO_STOR_DRIVE}"; then
     logError "Failed to find device for ISO storage: ${iso_stor_device}"
     return 1
   fi
