@@ -37,6 +37,13 @@ shutdown_main() {
 }
 
 shutdown_local() {
+  if ! others_disconnect_from_qnap; then
+    error "Failed to disconnect other machines"
+  fi
+  local_steps
+}
+
+local_steps() {
   if ! shutdown_plugin; then
     error "Failed to run plugins"
   fi
@@ -49,13 +56,72 @@ shutdown_local() {
 }
 
 shutdown_all() {
-  notify_wait_sol
-  shutdown_local
+  if ! others_disconnect_from_qnap; then
+    error "Failed to disconnect other machines"
+  elif ! others_trigger_shutdown; then
+    error "Failed to trigger shutdown on other machines"
+  fi
+  local_steps
+  if ! others_wait_shutdown; then
+    error "Failed to wait for other machines to shutdown"
+  fi
+
+  return 0
 }
 
-notify_wait_sol() {
-  # Notify SOL we are going down, wait for the OK
-  : # TODO: Wait on SOL being ready
+others_disconnect_from_qnap() {
+  power_plugin "disconnect"
+  return $?
+}
+
+others_trigger_shutdown() {
+  power_plugin "shutdown"
+  return $?
+}
+
+others_wait_shutdown() {
+  power_plugin "wait_off"
+  return $?
+}
+
+power_plugin() {
+  local sub_cmd="${1}"
+
+  local plugins plugin runnable
+  local exec=()
+
+  plugins=$(ls -1 "${PLUGIN_DIR}/power_"*)
+  plugins=$(echo "${plugins}" | sort)
+  readarray -t plugins <<<"${plugins[@]}"
+
+  for plugin in "${plugins[@]}"; do
+    # Check if the plugin is executable
+    if [[ -x "${plugin}" ]]; then
+      exec+=("${plugin}")
+    else
+      logWarn "Plugin ${plugin} is not executable"
+    fi
+  done
+
+  # Execute all plugins
+  local cmd res code __return_code
+  __return_code=0
+  for runnable in "${exec[@]}"; do
+    cmd=("${runnable}" "${sub_cmd}")
+    res=$("${cmd[@]}" 2>&1)
+    code=$?
+    if [[ ${code} -ne 0 ]]; then
+      error "Plugin failed (${code}): ${cmd[*]}"
+      logError <<EOF
+Executable ${runnable} returned with: ${code}
+Output:
+${res}"
+EOF
+      __return_code=1
+    fi
+  done
+
+  return "${__return_code}"
 }
 
 shutdown_plugin() {
