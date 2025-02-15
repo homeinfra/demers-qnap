@@ -410,8 +410,6 @@ elif ! source "${DQ_ROOT}/src/raid/smartd"; then
   logFatal "Failed to import smartd"
 elif ! source "${DQ_ROOT}/src/lifecycle/daemon.sh"; then
   logFatal "Failed to import daemon.sh"
-elif ! source "${DQ_ROOT}/src/iommu/passthrough.sh"; then
-  logFatal "Failed to import passthrough.sh"
 elif ! source "${DQ_ROOT}/src/storage/storage.sh"; then
   logFatal "Failed to import storage.sh"
 elif ! source "${DQ_ROOT}/src/storage/nas.sh"; then
