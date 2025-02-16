@@ -47,6 +47,9 @@ local_steps() {
   if ! shutdown_plugin; then
     error "Failed to run plugins"
   fi
+  if ! shutdown_all_local_vms; then
+    error "Failed to shutdown all local VMs"
+  fi
   if ! storage_unmount; then
     error "Failed to unmount storage"
   fi
@@ -162,6 +165,21 @@ EOF
     fi
   done
 
+  return 0
+}
+
+shutdown_all_local_vms() {
+  local local_vms
+  if ! xe_vm_list_not_tagged local_vms "local"; then
+    logError "Failed to get local VMs"
+    return 1
+  elif ! xe_vm_shutdown_by_id "force" "${local_vms[@]}"; then
+    logError "Failed to shutdown local VMs"
+    return 1
+  elif ! xe_vm_wait_halted_by_id "${local_vms[@]}"; then
+    logError "Failed to wait for local VMs to halt"
+    return 1
+  fi
   return 0
 }
 
