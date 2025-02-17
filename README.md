@@ -83,7 +83,7 @@ Cons:
 - MLC tecnology (probably not very reliable as a boot drive). At least I'm
   planning for RAID1.
 - USB 2.0 only.
-- Slow AF
+- Slow AF. I was not able to get more than 800 KiB/s. Rejected this option.
 
 #### SD Card
 
@@ -97,10 +97,12 @@ Cons:
 
 - Will a SD card be reliable enough? Contingency with RAID1 regardless.
 - Dongle hell. Not a nice physical mounting option.
-- USB 3 support? Maybe
+- USB 3 support? Maybe. I have not tried to build a custom DuPont connector
+  required for the weird USB 3.0 pinout. I could use the Industrial 32 GB
+  eUSB DOM as a reference.
 
 Conclusion:
-Not ideal, but this works. Bottleneck is USB 2.0 speeds at ~30MBps.
+Not ideal, but this works. Bottleneck is USB 2.0 speeds at ~30MiB/s.
 Tucked away between motherboard and internal drive chassis.
 I prefer SD Card over other flash<->usb solutions because
 I can get a smaller 64GB media. Smaller is better for ease of installation
@@ -134,7 +136,7 @@ If my boot drive ever fails, I won't be able to boot from the RAID1 mirror since
 it's located on a NVME SSD. However it should be quite easy to boot on a live CD
 and using mdadm, reoncstruct the array and re-populate a new SD card from that
 copy. I conside a non-bootable hot-copy that is always up to date with the boot
-drive.
+drive a nice and clever alternative.
 
 ### NAS Storage situation
 
@@ -181,9 +183,9 @@ Using Microsoft VS Code
 
 1. Create SSH credentials on your client dev machine if you
 don't have any already.
-2. Add the public key to `/root/.shh/authorized_keys` on the
+1. Add the public key to `/root/.shh/authorized_keys` on the
 server (Qnap TVS-663)
-3. Using the VS Code extension "Remote - SSH" from Microsoft, edit
+1. Using the VS Code extension "Remote - SSH" from Microsoft, edit
 your client-local `~/.ssh/config` by adding the following entry:
 
 ```txt
@@ -194,7 +196,7 @@ Host Qnap
   IdentityFile <private key>
 ```
 
-4. Open a remote session in VS Code, on Qnap, and open this git
+1. Open a remote session in VS Code, on Qnap, and open this git
 repository folder which should already be on the server following
 the installation above.
 
