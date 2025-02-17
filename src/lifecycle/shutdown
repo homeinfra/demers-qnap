@@ -176,7 +176,7 @@ shutdown_all_local_vms() {
   elif ! xe_vm_shutdown_by_id "force" "${local_vms[@]}"; then
     logError "Failed to shutdown local VMs"
     return 1
-  elif ! xe_vm_wait_halted_by_id "${local_vms[@]}"; then
+  elif ! xe_vm_wait_halted_by_id 300 "${local_vms[@]}"; then
     logError "Failed to wait for local VMs to halt"
     return 1
   fi
