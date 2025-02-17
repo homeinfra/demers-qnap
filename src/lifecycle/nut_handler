@@ -164,7 +164,7 @@ nut_timer() {
 }
 
 nut_shutdown() {
-  if ! "${UP_ROOT}/src/lifecycle/shutdown.sh" -e all; then
+  if ! "${UP_ROOT}/src/lifecycle/shutdown" -e all; then
     error "Failed to cause a OS shutdown"
     return 1
   fi
