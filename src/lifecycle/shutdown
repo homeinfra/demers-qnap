@@ -173,6 +173,9 @@ shutdown_all_local_vms() {
   if ! xe_vm_list_not_tagged local_vms "local"; then
     logError "Failed to get local VMs"
     return 1
+  elif [[ -z "${local_vms[*]}" ]]; then
+    logInfo "No local VMs to shutdown"
+    return 0
   elif ! xe_vm_shutdown_by_id "force" "${local_vms[@]}"; then
     logError "Failed to shutdown local VMs"
     return 1
